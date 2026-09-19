@@ -1,0 +1,2591 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Power BI Model Visualizer</title>
+<style>
+  :root{
+    /* ---- core surfaces / ink / accents (DARK = default) ---- */
+    --bg:#0d0f12; --bg2:#14171c; --panel:#171b21; --panel2:#1c2129;
+    --bg-glow:#1a1f27; --head-1:#14181e; --head-2:#101317;
+    --line:#2a313b; --line2:#353e4a;
+    --ink:#e6e9ee; --ink-dim:#9aa4b1; --ink-faint:#6b7480; --ink-bright:#ffffff;
+    --amber:#d9a441; --amber-dim:#9c7a35; --amber-hi:#e9b659;
+    --cyan:#54c7d6; --green:#7bbf6a; --violet:#b48ce0; --rose:#e07a7a;
+    --hl:#c558ff; --hl-soft:#7d3fb0;
+    /* ---- derived surfaces (were hard-coded) ---- */
+    --tint-amber:#2a2517;
+    --surf-node:#22262e; --surf-inset:#15181d; --surf-card:#1c2128;
+    --surf-pop-1:#1d222a; --surf-pop-2:#181c23;
+    --surf-info-bg:#1c2230; --surf-info-bd:#2d3a52; --surf-info-tx:#9fb4d8;
+    --scroll-thumb:#2c333d; --scroll-thumb-hover:#3a434f;
+    --shadow-c:rgba(0,0,0,.5); --overlay:rgba(8,9,11,.72); --hint-bg:rgba(13,15,18,.7);
+    --amber-tx:#f0dca6; --num:#e0b06a; --warn:#e8b339;
+    /* ---- diagram node tints (force graph + shared) ---- */
+    --node-fill:#22262e; --node-line:#4a5765; --node-tx:#cdd4dc;
+    --dg-fact-fill:#2a2210; --dg-fact-tx:#f0dca6;
+    --dg-dim-fill:#13232a;  --dg-dim-tx:#bdeef4;
+    --dg-calc-fill:#241c30; --dg-calc-tx:#e2d2f3;
+    --dg-disc-fill:#1a1d22; --dg-disc-line:#5a636e; --dg-disc-tx:#8b94a0;
+    /* ---- fonts ---- */
+    --mono:"JetBrains Mono","SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
+    --sans:"Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;
+    --r:7px;
+  }
+  /* ============================== LIGHT THEME ============================== */
+  :root[data-theme="light"]{
+    --bg:#f6f7f9; --bg2:#eceef1; --panel:#ffffff; --panel2:#f0f2f5;
+    --bg-glow:#eef1f5; --head-1:#ffffff; --head-2:#f2f4f7;
+    --line:#dde1e7; --line2:#c8cdd6;
+    --ink:#1d2733; --ink-dim:#5a6573; --ink-faint:#8a929c; --ink-bright:#0b0f14;
+    --amber:#b07d16; --amber-dim:#cbaa5e; --amber-hi:#c8912a;
+    --cyan:#1f8a99; --green:#3f8a34; --violet:#7b4fb0; --rose:#c0392b;
+    --hl:#9b1fd6; --hl-soft:#b98ae0;
+    --tint-amber:#fbf2dc;
+    --surf-node:#f4f6f8; --surf-inset:#f0f2f5; --surf-card:#ffffff;
+    --surf-pop-1:#ffffff; --surf-pop-2:#f2f4f7;
+    --surf-info-bg:#eaf1fb; --surf-info-bd:#b9cdec; --surf-info-tx:#37567f;
+    --scroll-thumb:#c3c9d2; --scroll-thumb-hover:#a9b1bd;
+    --shadow-c:rgba(40,55,80,.16); --overlay:rgba(30,40,55,.35); --hint-bg:rgba(255,255,255,.85);
+    --amber-tx:#6a4e0e; --num:#a06a10; --warn:#b5851a;
+    --node-fill:#f4f6f8; --node-line:#c3ccd6; --node-tx:#2a3742;
+    --dg-fact-fill:#fdf4dd; --dg-fact-tx:#6a4e0e;
+    --dg-dim-fill:#e4f4f7;  --dg-dim-tx:#14545f;
+    --dg-calc-fill:#f3ecfb; --dg-calc-tx:#4a2f70;
+    --dg-disc-fill:#eef0f3; --dg-disc-line:#a9b1bd; --dg-disc-tx:#5a6573;
+  }
+  /* @END-THEME-TOKENS */
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{
+    background:
+      radial-gradient(1200px 600px at 80% -10%, var(--bg-glow) 0%, transparent 60%),
+      var(--bg);
+    color:var(--ink); font-family:var(--sans); font-size:14px; line-height:1.45;
+    display:flex; flex-direction:column; height:100vh; overflow:hidden;
+  }
+  /* ---------- top bar ---------- */
+  header{
+    display:flex; align-items:center; gap:18px; padding:10px 16px;
+    background:linear-gradient(180deg,var(--head-1),var(--head-2));
+    border-bottom:1px solid var(--line); flex:0 0 auto;
+  }
+  .brand{display:flex;align-items:baseline;gap:10px}
+  .brand b{font-weight:700;letter-spacing:.3px}
+  .brand .dot{color:var(--amber)}
+  .brand small{color:var(--ink-faint);font-family:var(--mono);font-size:11px}
+  .btn{
+    font:inherit;cursor:pointer;border:1px solid var(--line2);background:var(--panel2);
+    color:var(--ink);padding:7px 13px;border-radius:var(--r);transition:.15s;
+    display:inline-flex;align-items:center;gap:7px;
+  }
+  .btn:hover{border-color:var(--amber);color:var(--ink-bright)}
+  .btn.primary{background:var(--amber);color:#15110a;border-color:var(--amber);font-weight:600}
+  .btn.primary:hover{background:var(--amber-hi)}
+  .stats{margin-left:auto;display:flex;gap:18px;color:var(--ink-dim);font-family:var(--mono);font-size:12px}
+  .stats b{color:var(--amber);font-weight:600}
+  .status{color:var(--ink-faint);font-size:12px;font-family:var(--mono)}
+  /* ---------- layout ---------- */
+  main{display:flex;flex:1 1 auto;min-height:0}
+  aside{
+    width:var(--aside-w,320px);flex:0 0 var(--aside-w,320px);background:var(--panel);
+    border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0;
+  }
+  .resizer{
+    flex:0 0 6px;cursor:col-resize;background:transparent;position:relative;z-index:5;
+    transition:background .15s;
+  }
+  .resizer::before{content:"";position:absolute;inset:0 2px;border-radius:2px;background:var(--line)}
+  .resizer:hover::before,.resizer.dragging::before{background:var(--amber)}
+  .resizer:hover,.resizer.dragging{background:rgba(217,164,65,.06)}
+  body.resizing{cursor:col-resize;user-select:none}
+  .search{padding:10px;border-bottom:1px solid var(--line)}
+  .search input{
+    width:100%;background:var(--bg2);border:1px solid var(--line2);color:var(--ink);
+    padding:8px 10px;border-radius:var(--r);font-family:var(--mono);font-size:13px;
+  }
+  .search input:focus{outline:none;border-color:var(--amber)}
+  .tree{flex:1 1 auto;overflow:auto;padding:6px 4px 40px}
+  .sec{margin:2px 0}
+  .sec>.sec-h{
+    display:flex;align-items:center;gap:8px;cursor:pointer;padding:6px 8px;
+    color:var(--ink-dim);text-transform:uppercase;font-size:11px;letter-spacing:.6px;
+    font-family:var(--mono);user-select:none;
+  }
+  .sec>.sec-h:hover{color:var(--ink)}
+  .sec>.sec-h .count{margin-left:auto;color:var(--ink-faint)}
+  .sec>.sec-h .chev{transition:.15s;color:var(--ink-faint)}
+  .sec.collapsed .chev{transform:rotate(-90deg)}
+  .sec.collapsed .sec-body{display:none}
+  .node{
+    display:flex;align-items:center;gap:7px;padding:4px 8px 4px 22px;border-radius:5px;
+    cursor:pointer;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  .node:hover{background:var(--panel2)}
+  .node.active{background:var(--tint-amber);outline:1px solid var(--amber-dim)}
+  .node .ic{flex:0 0 auto;width:14px;text-align:center;font-family:var(--mono);font-weight:700;font-size:11px}
+  .ic.tbl{color:var(--amber)} .ic.cal{color:var(--violet)} .ic.mea{color:var(--green)}
+  .ic.col{color:var(--ink-faint)} .ic.rel{color:var(--cyan)} .ic.src{color:var(--cyan)}
+  .node .sub{color:var(--ink-faint);font-size:11px;font-family:var(--mono);margin-left:6px}
+  .tnode>.node{font-weight:600}
+  .tchildren{margin-left:14px;border-left:1px solid var(--line);padding-left:2px;display:none}
+  .tnode.open .tchildren{display:block}
+  .tnode.open>.node .twist{transform:rotate(90deg)}
+  .twist{transition:.15s;color:var(--ink-faint);display:inline-block;font-size:10px}
+  /* ---------- content ---------- */
+  section.content{flex:1 1 auto;display:flex;flex-direction:column;min-width:0}
+  .tabs{display:flex;gap:6px;padding:10px 12px 0;background:var(--bg2);border-bottom:2px solid var(--line);align-items:flex-end}
+  .tab{
+    position:relative;padding:10px 20px;cursor:pointer;color:var(--ink-dim);
+    background:var(--panel2);border:1px solid var(--line);border-bottom:none;
+    border-radius:9px 9px 0 0;font-size:14px;font-weight:600;letter-spacing:.2px;
+    transition:background .15s,color .15s,border-color .15s;margin-bottom:-2px;
+  }
+  .tab:hover{color:var(--ink);background:var(--panel);border-color:var(--line2)}
+  .tab.active{background:var(--panel);color:var(--amber);border-color:var(--line);border-bottom:2px solid var(--panel);box-shadow:0 -1px 8px rgba(0,0,0,.15)}
+  .tab.active::after{content:"";position:absolute;left:-1px;right:-1px;top:-1px;height:3px;background:var(--amber);border-radius:9px 9px 0 0}
+  .views{flex:1 1 auto;min-height:0;position:relative;background:var(--panel)}
+  .view{position:absolute;inset:0;display:none;flex-direction:column;min-height:0}
+  .view.active{display:flex}
+  .toolbar{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--line);flex:0 0 auto;flex-wrap:wrap}
+  .toolbar label{color:var(--ink-dim);font-size:12px}
+  .toolbar select,.toolbar input[type=range]{
+    background:var(--bg2);border:1px solid var(--line2);color:var(--ink);
+    padding:5px 8px;border-radius:5px;font-family:var(--mono);font-size:12px;
+  }
+  .scroll{flex:1 1 auto;overflow:auto;padding:16px}
+  .diagram{min-height:100%;display:block}
+  .diagram svg{max-width:none;display:block;margin:0 auto}
+  .empty{display:flex;align-items:center;justify-content:center;height:100%;color:var(--ink-faint);
+    flex-direction:column;gap:14px;text-align:center;padding:30px}
+  .empty .big{font-size:15px;color:var(--ink-dim)}
+  .empty code{background:var(--bg2);border:1px solid var(--line);padding:2px 7px;border-radius:5px;font-family:var(--mono)}
+  /* code / detail blocks */
+  pre.code{
+    background:var(--bg);border:1px solid var(--line);border-radius:var(--r);
+    padding:12px 14px;font-family:var(--mono);font-size:12.5px;color:var(--ink);
+    overflow:auto;white-space:pre;tab-size:2;
+  }
+  .kw{color:var(--violet)} .fn{color:var(--cyan)} .str{color:var(--green)}
+  .obj{color:var(--amber)} .com{color:var(--ink-faint);font-style:italic} .num{color:var(--num)}
+  .detail h3{margin:0 0 4px;font-size:16px}
+  .detail .meta{color:var(--ink-faint);font-family:var(--mono);font-size:12px;margin-bottom:14px}
+  .detail .lbl{color:var(--amber);font-family:var(--mono);font-size:11px;letter-spacing:.5px;
+    text-transform:uppercase;margin:16px 0 6px}
+  .pill{display:inline-block;background:var(--panel2);border:1px solid var(--line2);border-radius:20px;
+    padding:2px 10px;margin:2px 4px 2px 0;font-family:var(--mono);font-size:11.5px;color:var(--ink-dim)}
+  .pill.cyan{border-color:var(--cyan);color:var(--cyan)}
+  .pill.green{border-color:var(--green);color:var(--green)}
+  .pill.violet{border-color:var(--violet);color:var(--violet)}
+  .mini{color:var(--ink-faint);font-size:12px;margin-top:6px}
+  .src-copy{position:absolute;top:14px;right:18px;z-index:5}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;color:var(--ink-dim);font-family:var(--mono)}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .swatch{width:11px;height:11px;border-radius:3px;display:inline-block}
+  .err{color:var(--rose);font-family:var(--mono);font-size:12px}
+  .banner{background:var(--tint-amber);border:1px solid var(--amber-dim);color:var(--amber-tx);padding:8px 12px;
+    border-radius:var(--r);font-size:12.5px;margin:10px 14px;display:none}
+  .banner.show{display:block}
+  /* breadcrumb / drill nav */
+  .crumbbar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:-4px 0 16px;
+    padding:8px 10px;background:var(--bg2);border:1px solid var(--line);border-radius:var(--r)}
+  .navbtn{cursor:pointer;border:1px solid var(--line2);background:var(--panel2);color:var(--ink);
+    width:26px;height:26px;border-radius:5px;display:inline-flex;align-items:center;justify-content:center;font-size:13px}
+  .navbtn:hover:not(.disabled){border-color:var(--amber);color:var(--ink-bright)}
+  .navbtn.disabled{opacity:.35;cursor:default}
+  .crumbs{display:flex;align-items:center;gap:2px;flex-wrap:wrap;font-family:var(--mono);font-size:12px}
+  .crumb{cursor:pointer;color:var(--ink-dim);padding:2px 7px;border-radius:5px}
+  .crumb:hover{color:var(--ink);background:var(--panel2)}
+  .crumb.here{color:var(--amber);background:var(--tint-amber);cursor:default}
+  .crumb .ck{opacity:.6}
+  .crumbsep{color:var(--ink-faint);padding:0 1px}
+  .daxhead{display:flex;align-items:center;gap:10px}
+  .toggle{cursor:pointer;border:1px solid var(--line2);background:var(--panel2);color:var(--ink-dim);
+    padding:3px 9px;border-radius:5px;font-size:11px;font-family:var(--mono);transition:.15s}
+  .toggle:hover{border-color:var(--amber);color:var(--ink)}
+  .toggle.on{background:var(--tint-amber);border-color:var(--amber-dim);color:var(--amber)}
+  .pill.drill{cursor:pointer;transition:.12s}
+  .pill.drill:hover{border-color:var(--amber);color:var(--ink-bright);background:var(--panel2);transform:translateY(-1px)}
+  /* zoom controls */
+  .zoom{display:inline-flex;align-items:center;gap:0;border:1px solid var(--line2);border-radius:6px;overflow:hidden}
+  .zoom button{font:inherit;cursor:pointer;border:none;background:var(--panel2);color:var(--ink);
+    width:30px;height:28px;font-size:14px;border-right:1px solid var(--line2)}
+  .zoom button:last-child{border-right:none}
+  .zoom button:hover{background:var(--line);color:var(--amber)}
+  .zoom .zlvl{min-width:46px;text-align:center;font-family:var(--mono);font-size:11px;color:var(--ink-dim);padding:0 4px}
+  .hint{color:var(--ink-faint);font-size:11.5px;font-family:var(--mono)}
+  /* lineage diagram pan + highlight */
+  .scroll.diagram-scroll{overflow:auto}
+  #lineageDiagram svg .node, #modelDiagram svg .node{cursor:pointer}
+  .lin-hl rect,.lin-hl polygon,.lin-hl circle,.lin-hl path,.lin-hl ellipse{
+    stroke:var(--hl)!important;stroke-width:3px!important}
+  .lin-hl{filter:drop-shadow(0 0 5px var(--hl))}
+  .lin-hl .nodeLabel,.lin-hl text,.lin-hl span,.lin-hl div{color:var(--ink-bright)!important;fill:var(--ink-bright)!important}
+  .lin-hl-root rect,.lin-hl-root polygon,.lin-hl-root circle,.lin-hl-root path,.lin-hl-root ellipse{
+    stroke:#e69bff!important;stroke-width:4px!important}
+  .lin-hl-root{filter:drop-shadow(0 0 9px var(--hl))}
+  path.lin-edge-hl{stroke:var(--hl)!important;stroke-width:3px!important;filter:drop-shadow(0 0 4px var(--hl))}
+  .lin-dim{opacity:.14;transition:opacity .15s}
+  .lin-hidden{display:none!important}
+  svg.lab-dim .edgeLabels{opacity:.18}
+  svg.lab-hide .edgeLabels{display:none}
+  /* force-directed model map */
+  #modelDiagram{height:100%;overflow:hidden;position:relative}
+  .fg-svg{width:100%;height:100%;display:block;cursor:grab}
+  .fg-svg.panning{cursor:grabbing}
+  .fgnode{cursor:grab}
+  .fgnode.dragging{cursor:grabbing}
+  /* default (used by force mode) */
+  .fgnode rect{fill:var(--node-fill);stroke:var(--node-line);stroke-width:1.4px;rx:6;transition:fill .2s,stroke .2s}
+  .fgnode text{fill:var(--node-tx);font-family:var(--mono);font-size:12px;dominant-baseline:central;pointer-events:none}
+  /* role colours */
+  .fgnode.role-fact rect{fill:var(--dg-fact-fill);stroke:var(--amber);stroke-width:1.8px}
+  .fgnode.role-fact text{fill:var(--dg-fact-tx)}
+  .fgnode.role-bridge rect{fill:var(--dg-fact-fill);stroke:var(--amber);stroke-dasharray:0}
+  .fgnode.role-dim rect{fill:var(--dg-dim-fill);stroke:var(--cyan)}
+  .fgnode.role-dim text{fill:var(--dg-dim-tx)}
+  .fgnode.role-calc rect{fill:var(--dg-calc-fill);stroke:var(--violet)}
+  .fgnode.role-calc text{fill:var(--dg-calc-tx)}
+  .fgnode.role-disconnected rect{fill:var(--dg-disc-fill);stroke:var(--dg-disc-line);stroke-dasharray:3 3}
+  .fgnode.role-disconnected text{fill:var(--dg-disc-tx)}
+  .fgnode.focus rect{stroke:var(--amber-hi);stroke-width:2.6px;filter:drop-shadow(0 0 7px rgba(233,182,89,.5))}
+  .fgnode.focus text{fill:var(--ink-bright)}
+  .fgnode .fgsub{fill:var(--ink-faint);font-size:9px}
+  .fgnode.dim{opacity:.16}
+  .fgnode.hot rect{stroke:var(--hl)!important;stroke-width:2.6px;filter:drop-shadow(0 0 6px var(--hl))}
+  .fgnode.hot text{fill:var(--ink-bright)}
+  .fglink{stroke:var(--node-line);stroke-width:1.5px;fill:none;transition:stroke .15s,opacity .15s}
+  .fglink.inactive{stroke:var(--cyan);opacity:.55;stroke-dasharray:5 4}
+  .fglink.both{stroke:var(--cyan)}
+  .fglink.dim{opacity:.1}
+  .fglink.hot{stroke:var(--hl)!important;stroke-width:2.4px;filter:drop-shadow(0 0 4px var(--hl))}
+  .fgcrow{fill:none;stroke:var(--ink-dim);stroke-width:1.4px}
+  .fgcrow.hot{stroke:var(--hl)}
+  .fgelabel{fill:var(--ink-dim);font-family:var(--mono);font-size:10px;pointer-events:none;opacity:0;transition:opacity .12s}
+  .fgelabel.show{opacity:.92}
+  .fg-hint{position:absolute;left:12px;bottom:10px;font-family:var(--mono);font-size:11px;color:var(--ink-faint);
+    background:var(--hint-bg);border:1px solid var(--line);border-radius:6px;padding:4px 9px;pointer-events:none}
+  /* segmented mode switch */
+  .seg{display:inline-flex;border:1px solid var(--line2);border-radius:7px;overflow:hidden}
+  .seg-btn{font:inherit;cursor:pointer;border:none;background:var(--panel2);color:var(--ink-dim);
+    padding:6px 12px;font-size:12px;border-right:1px solid var(--line2);transition:.15s}
+  .seg-btn:last-child{border-right:none}
+  .seg-btn:hover{color:var(--ink)}
+  .seg-btn.active{background:var(--tint-amber);color:var(--amber)}
+  /* report skeleton */
+  #reportCanvas{height:100%;overflow:hidden;position:relative}
+  .rpt-hint{font-size:11px;color:var(--ink-faint);font-family:var(--mono)}
+  .rpt-stage{position:relative;margin:auto;background:var(--surf-inset);border:1px solid var(--line2);
+    box-shadow:0 8px 40px var(--shadow-c)}
+  .rpt-vis{position:absolute;border:1.5px solid var(--node-line);border-radius:5px;background:var(--surf-card);
+    overflow:hidden;cursor:pointer;transition:border-color .15s,box-shadow .15s,transform .08s}
+  .rpt-vis:hover{border-color:var(--amber);box-shadow:0 0 0 1px var(--amber),0 4px 18px var(--shadow-c);z-index:5}
+  .rpt-vis.has-measure{border-color:#5a6573}
+  .rpt-vis .rv-head{font-family:var(--mono);font-size:10px;color:var(--ink-dim);padding:3px 6px;
+    border-bottom:1px solid var(--line);background:rgba(0,0,0,.2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    display:flex;align-items:center;gap:5px}
+  .rpt-vis .rv-head .rv-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+  .rpt-vis .rv-head .rv-vs{flex:0 0 auto;cursor:pointer;color:var(--ink-faint);opacity:0;transition:.12s;padding:0 2px}
+  .rpt-vis:hover .rv-head .rv-vs{opacity:.7}
+  .rpt-vis .rv-head .rv-vs:hover{color:var(--green);opacity:1}
+  .rpt-vis .rv-link{cursor:pointer;border-radius:3px;padding:0 2px;margin:0 -2px}
+  .rpt-vis .rv-link:hover{background:rgba(123,191,106,.14);text-decoration:underline}
+  .rpt-vis .rv-body{padding:4px 6px;font-family:var(--mono);font-size:10px;line-height:1.5;color:var(--ink-faint);overflow:hidden}
+  .rpt-vis .rv-m{color:var(--green)}
+  .rpt-vis .rv-c{color:var(--cyan)}
+  .rpt-vis .rv-x{color:var(--ink-faint);font-style:italic}
+  .rpt-vis.type-card .rv-head,.rpt-vis.type-multiRowCard .rv-head{color:var(--dg-fact-tx)}
+  .rpt-vis.type-slicer{border-style:dashed}
+  .rpt-empty-page{color:var(--ink-faint);font-family:var(--mono);font-size:12px;padding:20px}
+  /* detail toolbar + markdown modal */
+  .detail-toolbar{display:flex;gap:8px;padding:8px 12px;border-bottom:1px solid var(--line);background:var(--panel)}
+  .md-modal{position:fixed;inset:0;background:var(--overlay);z-index:100;display:flex;align-items:center;justify-content:center}
+  .md-dialog{width:min(880px,92vw);height:min(80vh,860px);background:var(--panel);border:1px solid var(--line2);
+    border-radius:10px;display:flex;flex-direction:column;box-shadow:0 20px 70px var(--shadow-c);overflow:hidden}
+  .md-head{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--line);
+    font-family:var(--mono);font-size:13px;color:var(--amber)}
+  .md-actions{display:flex;gap:8px}
+  #mdText{flex:1;border:none;resize:none;background:var(--surf-inset);color:var(--ink);font-family:var(--mono);font-size:12px;
+    line-height:1.55;padding:14px 16px;outline:none;white-space:pre;overflow:auto}
+  .btn.vs-on{border-color:var(--green);color:var(--green)}
+  .vs-link{cursor:pointer;border:1px solid var(--line2);background:var(--panel2);color:var(--ink-dim);
+    padding:3px 9px;border-radius:5px;font-size:11px;font-family:var(--mono);transition:.15s;display:inline-flex;gap:5px;align-items:center}
+  .vs-link:hover{border-color:var(--green);color:var(--green)}
+  /* model map node accents */
+  .fgnode .fgstrip{rx:2}
+  .fgnode.role-fact .fgstrip{fill:var(--amber)}
+  .fgnode.role-bridge .fgstrip{fill:var(--amber);opacity:.6}
+  .fgnode.role-dim .fgstrip{fill:var(--cyan)}
+  .fgnode.role-calc .fgstrip{fill:var(--violet)}
+  .fgnode.role-disconnected .fgstrip{fill:var(--dg-disc-line)}
+  .fgnode.match rect{stroke:var(--amber-hi)!important;stroke-width:2.4px;filter:drop-shadow(0 0 6px rgba(233,182,89,.55))}
+  .fgnode.nomatch{opacity:.18}
+  .fgnode.pinned rect{stroke:var(--hl)!important;stroke-width:2.6px;filter:drop-shadow(0 0 7px var(--hl))}
+  .fgnode.pinned text{fill:var(--ink-bright)}
+  /* model map info card */
+  .fg-card{position:absolute;z-index:30;background:linear-gradient(180deg,var(--surf-pop-1),var(--surf-pop-2));border:1px solid var(--line2);
+    border-radius:9px;padding:11px 13px;min-width:210px;max-width:300px;box-shadow:0 14px 40px var(--shadow-c);
+    font-size:12px;pointer-events:auto}
+  .fg-card h4{margin:0;font-size:13px;color:var(--ink);display:flex;align-items:center;gap:7px;font-family:var(--mono)}
+  .fg-card .fc-badge{font-size:9.5px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.5px;
+    border:1px solid;border-radius:4px;padding:1px 6px;margin-left:auto}
+  .fc-badge.fact{color:var(--amber);border-color:var(--amber-dim)}
+  .fc-badge.bridge{color:var(--amber);border-color:var(--amber-dim);opacity:.7}
+  .fc-badge.dim{color:var(--cyan);border-color:#2d6b75}
+  .fc-badge.calc{color:var(--violet);border-color:#5d4779}
+  .fc-badge.disconnected{color:var(--ink-faint);border-color:var(--line2)}
+  .fg-card .fc-meta{color:var(--ink-dim);font-family:var(--mono);font-size:11px;margin:7px 0 9px;line-height:1.6}
+  .fg-card .fc-meta .src{color:var(--cyan)}
+  .fg-card .fc-actions{display:flex;gap:6px;flex-wrap:wrap}
+  .fg-card .fc-x{position:absolute;top:6px;right:8px;cursor:pointer;color:var(--ink-faint);font-size:12px}
+  .fg-card .fc-x:hover{color:var(--ink)}
+  /* audit page */
+  .audit-note{background:var(--surf-info-bg);border:1px solid var(--surf-info-bd);color:var(--surf-info-tx);padding:8px 12px;border-radius:var(--r);
+    font-size:12px;margin-bottom:12px;font-family:var(--mono)}
+  .audit-row{display:flex;align-items:center;gap:10px;padding:7px 10px;border-bottom:1px solid var(--line);
+    cursor:pointer;font-family:var(--mono);font-size:12.5px;border-radius:5px}
+  .audit-row:hover{background:var(--panel2)}
+  .audit-row .aw{flex:0 0 18px;text-align:center}
+  .audit-row .aw.warn{color:var(--warn)}
+  .audit-row .aw.ok{color:var(--ink-faint);opacity:.35}
+  .audit-row .an{color:var(--green);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .audit-row .at{color:var(--ink-faint);font-size:11px;white-space:nowrap}
+  .audit-row .as{margin-left:auto;display:flex;gap:6px;align-items:center;flex:0 0 auto}
+  .astat{font-size:10.5px;border:1px solid;border-radius:11px;padding:1px 9px;white-space:nowrap}
+  .astat.inrep{color:var(--green);border-color:#3f6a38}
+  .astat.feeds{color:var(--cyan);border-color:#2d6b75}
+  .astat.refonly{color:var(--ink-dim);border-color:var(--line2)}
+  .astat.unused{color:var(--rose);border-color:#7a3d3d}
+  .astat.unknown{color:var(--ink-faint);border-color:var(--line2)}
+  .audit-miss{color:var(--rose);font-size:11px;padding:2px 10px 8px 38px;font-family:var(--mono);
+    border-bottom:1px solid var(--line);margin-top:-1px}
+  .audit-miss code{background:var(--bg2);border:1px solid #4a2c2c;border-radius:4px;padding:1px 6px;margin-right:5px}
+  .audit-sec{color:var(--amber);font-family:var(--mono);font-size:11px;letter-spacing:.5px;
+    text-transform:uppercase;margin:18px 0 8px}
+  /* export popover */
+  .exp-menu{position:fixed;z-index:60;background:linear-gradient(180deg,var(--surf-pop-1),var(--surf-pop-2));
+    border:1px solid var(--line2);border-radius:9px;padding:5px;min-width:210px;
+    box-shadow:0 16px 44px var(--shadow-c);font-size:12.5px}
+  .exp-grp{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.6px;
+    color:var(--ink-faint);padding:8px 9px 3px;display:flex;justify-content:space-between;gap:8px}
+  .exp-grp .exp-sub{color:var(--cyan);text-transform:none;letter-spacing:0;opacity:.8;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:120px}
+  .exp-item{padding:7px 10px;border-radius:6px;cursor:pointer;color:var(--ink-dim);font-family:var(--mono)}
+  .exp-item:hover{background:var(--panel2);color:var(--green)}
+  ::-webkit-scrollbar{width:11px;height:11px}
+  ::-webkit-scrollbar-thumb{background:var(--scroll-thumb);border-radius:6px;border:2px solid var(--panel)}
+  ::-webkit-scrollbar-thumb:hover{background:var(--scroll-thumb-hover)}
+
+  .explorer{padding:28px;max-width:1400px;margin:auto;width:100%;align-self:flex-start}
+  .explorer h2{font-size:25px;margin:0 0 8px}.explorer p{color:var(--ink-dim);max-width:850px}
+  .explorer-controls{display:flex;gap:10px;flex-wrap:wrap;margin:24px 0 16px}
+  .explorer input,.explorer select{background:var(--bg2);border:1px solid var(--line2);color:var(--ink);padding:10px;border-radius:7px}
+  .explorer input{flex:1;min-width:180px}.table-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+  .table-card{text-align:left;display:block;padding:18px;background:var(--panel);border:1px solid var(--line);border-radius:9px;color:var(--ink);cursor:pointer;font:inherit}
+  .table-card:hover,.table-card:focus-visible{border-color:var(--amber);outline:1px solid var(--amber)}
+  .table-card strong{display:block;overflow-wrap:anywhere;margin:8px 0}.table-card small{color:var(--ink-dim)}
+  .overview-metrics{display:flex;gap:12px;flex-wrap:wrap;margin:20px 0}.overview-metrics span{padding:12px 18px;background:var(--panel);border:1px solid var(--line);border-radius:7px}.overview-metrics b{color:var(--amber)}
+  .impact-list button{margin:4px}.toolbar{flex-wrap:wrap}header{flex-wrap:wrap}.explorer-note{font-size:12px;color:var(--ink-faint)}
+</style>
+<script>(function(){try{var t=localStorage.getItem('pbiviz.theme');if(t==='light')document.documentElement.setAttribute('data-theme','light');}catch(e){}})();</script>
+</head>
+<body>
+<header>
+  <div class="brand"><b>PBI<span class="dot">·</span>Model</b> <small>semantic model explorer · v25</small></div>
+  <button class="btn primary" id="openBtn">⊞ Open PBIP / model folder…</button>
+  <button class="btn" id="vsBtn" title="Set the absolute path of your PBIP project folder on disk to enable 'Open in VS Code' deep links">⌁ VS Code</button>
+  <button class="btn" id="themeBtn" title="Toggle light / dark theme">☀️ Light</button>
+  <input type="file" id="dirInput" webkitdirectory directory multiple style="display:none">
+  <span class="status" id="status">No model loaded</span>
+  <div class="stats" id="stats" style="display:none">
+    <span><b id="sT">0</b> tables</span>
+    <span><b id="sM">0</b> measures</span>
+    <span><b id="sC">0</b> columns</span>
+    <span><b id="sR">0</b> relationships</span>
+  </div>
+</header>
+
+<div class="banner" id="mermaidBanner">
+  Mermaid diagram library couldn't load (likely blocked by your network/proxy). Diagrams will show as copyable
+  text you can paste into <code>mermaid.live</code>. To render inline offline, drop a <code>mermaid.min.js</code>
+  file next to this HTML file.
+</div>
+
+<main>
+  <aside>
+    <div class="search"><input id="search" placeholder="filter tables, measures, columns…"></div>
+    <div class="tree" id="tree">
+      <div class="empty" style="height:auto;padding:40px 16px"><div class="big">Nothing loaded yet.</div></div>
+    </div>
+  </aside>
+
+  <div class="resizer" id="resizer" title="Drag to resize · double-click to reset"></div>
+
+  <section class="content">
+    <div class="tabs">
+      <div class="tab active" data-view="model">Model Explorer</div>
+      <div class="tab" data-view="lineage">Lineage</div>
+      <div class="tab" data-view="detail">Source &amp; Detail</div>
+      <div class="tab" id="reportTab" data-view="report" style="display:none">▭ Report</div>
+      <div class="tab" data-view="audit">⚠ Audit</div>
+    </div>
+    <div class="views">
+
+      <!-- MODEL MAP -->
+      <div class="view active" id="view-model">
+        <div class="toolbar">
+          <div class="seg" id="mapMode">
+            <button class="seg-btn active" data-mode="schematic" title="Structured, role-aware layout">◫ Schematic</button>
+            <button class="seg-btn" data-mode="force" title="Free physics layout">✦ Force</button>
+          </div>
+          <label>Focus</label>
+          <select id="focusSel"><option value="">Overview · choose a table</option></select>
+          <label>Related levels</label>
+          <select id="hopSel"><option value="1">1</option><option value="2">2</option><option value="3">3</option></select>
+          <button class="btn" id="overviewBtn">← Overview</button><label><input type="checkbox" id="inactiveRel"> Inactive links</label><button class="btn" id="arrangeBtn" title="Re-run the layout">⊞ Arrange</button>
+          <button class="btn" id="copyModelMmd">⧉ Copy Mermaid</button>
+          <div class="zoom" data-host="modelDiagram">
+            <button data-z="out" title="Zoom out">−</button>
+            <button data-z="reset" title="Reset">⊙</button>
+            <button data-z="in" title="Zoom in">+</button>
+            <button data-z="fit" title="Fit">⤢</button>
+          </div>
+          <div class="legend" style="margin-left:auto">
+            <span><i class="swatch" style="background:#d9a441"></i>fact</span>
+            <span><i class="swatch" style="background:#54c7d6"></i>dimension</span>
+            <span><i class="swatch" style="background:#b48ce0"></i>calc</span>
+            <span><i class="swatch" style="background:#6b7480"></i>disconnected</span>
+          </div>
+        </div>
+        <div class="scroll diagram-scroll"><div class="diagram" id="modelDiagram"></div></div>
+      </div>
+
+      <!-- LINEAGE -->
+      <div class="view" id="view-lineage">
+        <div class="toolbar">
+          <span class="status" id="lineageTitle">Select a measure or column from the left</span>
+          <span class="hint" id="linHint">click a node = highlight what feeds it · double-click = open in detail</span>
+          <div class="zoom" data-host="lineageDiagram" style="margin-left:auto">
+            <button data-z="out" title="Zoom out">−</button>
+            <button data-z="reset" title="Reset">⊙</button>
+            <button data-z="in" title="Zoom in">+</button>
+            <button data-z="fit" title="Fit width">⤢</button>
+          </div>
+          <span class="toggle" id="isolateToggle" title="Hide everything except the highlighted upstream">⊘ Isolate</span>
+          <button class="btn" id="rerootBtn" style="display:none"></button>
+          <button class="btn" id="clearHl">Clear</button>
+          <button class="btn" id="copyLinMmd">⧉ Copy Mermaid</button>
+        </div>
+        <div class="scroll diagram-scroll"><div class="diagram" id="lineageDiagram">
+          <div class="empty"><div class="big">Pick a measure to trace its DAX lineage</div>
+          <div>…through dependent measures, columns and tables, down to the data source.</div></div>
+        </div></div>
+      </div>
+
+      <!-- DETAIL -->
+      <div class="view" id="view-detail">
+        <div class="detail-toolbar" id="detailToolbar" style="display:none">
+          <button class="btn" id="mdBtn" title="Generate a Markdown spec: this measure and all upstream dependencies down to source">⌄ Markdown</button>
+          <button class="btn" id="mdModelBtn" title="Generate Markdown for every measure in the model (can be large)">⌄ Whole model</button>
+        </div>
+        <div class="scroll" style="position:relative">
+          <div id="detailBody" class="detail">
+            <div class="empty"><div class="big">Select an item to inspect its DAX / M and properties</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- REPORT -->
+      <div class="view" id="view-report">
+        <div class="toolbar">
+          <label>Page</label>
+          <select id="reportPageSel"></select>
+          <span class="rpt-hint">click a visual to trace its measures → DAX → source</span>
+          <button class="btn" id="reportPageVs" title="Open this page's page.json in VS Code">⌁ page.json</button>
+          <button class="btn" id="reportExport" style="margin-left:auto">⤓ Export components</button>
+          <div class="legend" id="reportLegend"></div>
+        </div>
+        <div class="scroll diagram-scroll"><div class="diagram" id="reportCanvas"></div></div>
+      </div>
+
+      <!-- AUDIT -->
+      <div class="view" id="view-audit">
+        <div class="toolbar">
+          <div class="seg" id="auditFilter">
+            <button class="seg-btn active" data-f="all">All</button>
+            <button class="seg-btn" data-f="unused">Not observed</button>
+            <button class="seg-btn" data-f="broken">⚠ Review</button>
+          </div>
+          <span class="status" id="auditSummary"></span>
+          <button class="btn" id="auditCsv" style="margin-left:auto">⤓ CSV</button>
+        </div>
+        <div class="scroll"><div id="auditBody"><div class="empty"><div class="big">Load a model to audit its measures</div></div></div></div>
+      </div>
+
+    </div>
+  </section>
+</main>
+
+<div id="mdModal" class="md-modal" style="display:none">
+  <div class="md-dialog">
+    <div class="md-head">
+      <span id="mdTitle">Markdown</span>
+      <div class="md-actions">
+        <button class="btn" id="mdCopy">⧉ Copy</button>
+        <button class="btn" id="mdDownload">⤓ Download .md</button>
+        <button class="btn" id="mdClose">✕ Close</button>
+      </div>
+    </div>
+    <textarea id="mdText" spellcheck="false" readonly></textarea>
+  </div>
+</div>
+
+<script>
+/* ============================================================ PARSER CORE ============================================================ */
+const KNOWN_PROPS=new Set(['lineageTag','formatString','formatStringDefinition','displayFolder','description','isHidden','isPrivate','dataType','summarizeBy','sourceColumn','dataCategory','sortByColumn','kind','mode','queryGroup','isKey','isNullable','isDefaultLabel','isDefaultImage','isNameInferred','isDataTypeInferred','encoding','encodingHint','sourceProviderType','expressionSource','entityName','schemaName','dataAccessOptions','fromColumn','toColumn','fromCardinality','toCardinality','crossFilteringBehavior','isActive','relyOnReferentialIntegrity','securityFilteringBehavior','joinOnDateBehavior','state','compatibilityLevel','culture','defaultPowerBIDataSourceVersion','sourceQueryCulture','collation','dataSourceDefaultMaxConnections','contentType','level','column','ordinal','calculationGroupExpression','precedence','detailRowsDefinition','objectTranslation','refreshPolicy','isAvailableInMdx','displayOrdinal','alternateOf']);
+const SUBDECL=new Set(['annotation','changedProperty','extendedProperty','relatedColumnDetails','variation','level','translation','member','role','tablePermission','columnPermission','linguisticMetadata']);
+const BOOLP=new Set(['isHidden','isPrivate','isKey','isNullable','isActive','isDefaultLabel','isDefaultImage','isNameInferred','isDataTypeInferred','isAvailableInMdx','relyOnReferentialIntegrity']);
+function indentOf(l){let n=0;for(const c of l){if(c==='\t')n+=4;else if(c===' ')n++;else break;}return n;}
+function buildTree(text){
+  const lines=text.replace(/\r\n/g,'\n').split('\n');
+  const root={indent:-1,raw:'__root__',children:[],descLines:[],exprLines:[],line:0};
+  const stack=[root];let pend=[],inBT=false,owner=null;
+  for(let li=0;li<lines.length;li++){
+    const line=lines[li];
+    const t=line.trim();
+    if(inBT){ if(t==='```'){inBT=false;owner=null;} else if(owner) owner.exprLines.push(line); continue; }
+    if(t==='')continue;
+    if(t.startsWith('///')){pend.push(t.replace(/^\/\/\/\s?/,''));continue;}
+    const ind=indentOf(line);
+    while(stack.length>1&&ind<=stack[stack.length-1].indent)stack.pop();
+    const node={indent:ind,raw:t,children:[],descLines:pend,exprLines:[],line:li+1};pend=[];
+    stack[stack.length-1].children.push(node);stack.push(node);
+    const eq=t.indexOf('=');
+    if(eq!==-1&&t.slice(eq+1).trim()==='```'){inBT=true;owner=node;}
+  }
+  return root;
+}
+function extractExpression(node,inlineRHS){
+  if(node.exprLines&&node.exprLines.length)return dedent(node.exprLines).join('\n').trim();
+  const out=[];collectExpr(node,out);const tail=dedentRaw(out).join('\n').trim();
+  return [inlineRHS&&inlineRHS.trim()!=='```'?inlineRHS.trim():'',tail].filter(Boolean).join('\n');
+}
+function collectExpr(node,out){
+  for(const c of node.children){
+    const tok=c.raw.split(/[\s:=]/)[0];
+    const isProp=(c.raw.includes(':')&&KNOWN_PROPS.has(c.raw.split(':')[0].trim()))||BOOLP.has(c.raw.trim())||SUBDECL.has(tok);
+    if(isProp)continue;
+    out.push({indent:c.indent,raw:c.raw});collectExpr(c,out);
+  }
+}
+function dedent(lines){const ind=lines.filter(l=>l.trim()).map(indentOf);const min=ind.length?Math.min(...ind):0;return lines.map(l=>' '.repeat(Math.max(0,indentOf(l)-min))+l.trim());}
+function dedentRaw(items){if(!items.length)return[];const min=Math.min(...items.map(i=>i.indent));return items.map(i=>' '.repeat(Math.max(0,i.indent-min))+i.raw);}
+function getProp(node,key){for(const c of node.children){const i=c.raw.indexOf(':');if(i!==-1&&c.raw.slice(0,i).trim()===key)return c.raw.slice(i+1).trim();if(c.raw.trim()===key)return true;}return null;}
+function boolProp(node,key){const v=getProp(node,key);return v===true||String(v).toLowerCase()==='true';}
+function delimiterOutsideQuotes(s,delimiter){let quoted=false;for(let i=0;i<s.length;i++){if(s[i]==="'"){if(quoted&&s[i+1]==="'"){i++;continue;}quoted=!quoted;}else if(!quoted&&s[i]===delimiter)return i;}return -1;}
+function parseHeader(raw){const m=raw.match(/^([A-Za-z_][\w]*)\b\s*(.*)$/);if(!m)return{keyword:raw,name:'',rhs:null};let rest=m[2],rhs=null;const i=delimiterOutsideQuotes(rest,'=');if(i!==-1){rhs=rest.slice(i+1);rest=rest.slice(0,i);}return{keyword:m[1],name:unquote(rest.trim()),rhs};}
+function unquote(s){s=s.trim();return s.startsWith("'")&&s.endsWith("'")?s.slice(1,-1).replace(/''/g,"'"):s;}
+function splitColumnRef(s){s=(s||'').trim();const i=delimiterOutsideQuotes(s,'.');return{table:unquote(i<0?s:s.slice(0,i)),column:i<0?'':unquote(s.slice(i+1))};}
+
+function parseModel(files){
+  const model={tables:Object.create(null),measures:[],columns:[],relationships:[],expressions:[],modelInfo:{},database:{},fileErrors:[]};
+  for(const f of files){
+    let root;try{root=buildTree(f.text);}catch(e){model.fileErrors.push({path:f.path,error:String(e)});continue;}
+    for(const node of root.children){
+      const h=parseHeader(node.raw);
+      if(h.keyword==='table')ingestTable(model,node,h,f.path);
+      else if(h.keyword==='relationship'){const rel=parseRel(node,h);rel.file=f.path;rel.line=node.line;model.relationships.push(rel);}
+      else if(h.keyword==='expression')model.expressions.push({name:h.name,kind:getProp(node,'kind'),expression:extractExpression(node,h.rhs),file:f.path,line:node.line});
+      else if(h.keyword==='model')model.modelInfo={name:h.name,culture:getProp(node,'culture')};
+      else if(h.keyword==='database')model.database={name:h.name,compatibilityLevel:getProp(node,'compatibilityLevel')};
+      else if(h.keyword==='createOrReplace'||h.keyword==='ref'){
+        for(const inner of node.children){const ih=parseHeader(inner.raw);
+          if(ih.keyword==='table')ingestTable(model,inner,ih,f.path);
+          else if(ih.keyword==='relationship')model.relationships.push(parseRel(inner,ih));}
+      }
+    }
+  }
+  return model;
+}
+function ingestTable(model,node,h,path){
+  const tn=h.name;let t=model.tables[tn];
+  if(!t){t={name:tn,file:path,line:node.line||1,columns:[],measures:[],partitions:[],hierarchies:[],isHidden:boolProp(node,'isHidden'),description:node.descLines.join('\n'),isCalculated:false};model.tables[tn]=t;}
+  for(const ch of node.children){
+    const c=parseHeader(ch.raw);
+    if(c.keyword==='measure'){const m={name:c.name,table:tn,file:path,line:ch.line,expression:extractExpression(ch,c.rhs),formatString:getProp(ch,'formatString'),displayFolder:getProp(ch,'displayFolder'),description:ch.descLines.join('\n')||getProp(ch,'description')||'',lineageTag:getProp(ch,'lineageTag')};t.measures.push(m);model.measures.push(m);}
+    else if(c.keyword==='column'){const calc=c.rhs!=null;const col={name:c.name,table:tn,file:path,line:ch.line,dataType:getProp(ch,'dataType'),sourceColumn:getProp(ch,'sourceColumn'),isCalculated:calc,expression:calc?extractExpression(ch,c.rhs):null,isHidden:boolProp(ch,'isHidden'),description:ch.descLines.join('\n')||getProp(ch,'description')||''};t.columns.push(col);model.columns.push(col);}
+    else if(c.keyword==='partition'){const mode=c.rhs?c.rhs.trim():null;const sn=ch.children.find(x=>parseHeader(x.raw).keyword==='source');let src='';if(sn){const inline=sn.raw.slice(sn.raw.indexOf('=')+1);src=extractExpression(sn,inline);}t.partitions.push({name:c.name,table:tn,file:path,line:ch.line,type:mode,partitionMode:getProp(ch,'mode'),sourceType:getProp(ch,'sourceProviderType'),entityName:getProp(ch,'entityName'),schemaName:getProp(ch,'schemaName'),expressionSource:getProp(ch,'expressionSource'),source:src});if(mode==='calculated')t.isCalculated=true;}
+    else if(c.keyword==='hierarchy'){const lv=ch.children.filter(x=>parseHeader(x.raw).keyword==='level').map(x=>getProp(x,'column')||parseHeader(x.raw).name);t.hierarchies.push({name:c.name,levels:lv});}
+  }
+}
+function parseRel(node,h){const a=getProp(node,'isActive');
+  const fc=getProp(node,'fromColumn'),tc=getProp(node,'toColumn');
+  const f=splitColumnRef(fc),t=splitColumnRef(tc);
+  return{name:h.name,fromColumn:fc,toColumn:tc,fromTable:f.table,fromCol:f.column,toTable:t.table,toCol:t.column,fromCardinality:getProp(node,'fromCardinality')||'many',toCardinality:getProp(node,'toCardinality')||'one',crossFilteringBehavior:getProp(node,'crossFilteringBehavior'),isActive:a===null?true:(a!=='false')};}
+
+function analyzeDax(expr,known){
+  // Character scanner, not regex. DAX reference syntax has nested delimiters that regex
+  // cannot parse: a table name may itself contain '[' and ']' (e.g. '[PE Fact] LMPP PowerBI'),
+  // single quotes escape as '' inside a quoted name, and ']' escapes as ']]' inside a column
+  // bracket. The previous regex paired quotes greedily and, across a  '],  '[  boundary,
+  // stitched the gap between two references into a phantom table name. A left-to-right scan
+  // that knows the escaping rules resolves each reference exactly.
+  if(!expr)return{columns:[],names:[],tables:[],locals:[]};
+  const s=String(expr),n=s.length;
+  const cols=[],names=[],tabs=new Set(),locals=[];
+  // locals (extension columns) only exist inside functions that can declare them
+  const hasExtFn=/\b(ADDCOLUMNS|SELECTCOLUMNS|SUMMARIZE|SUMMARIZECOLUMNS|GROUPBY|ROW|DATATABLE)\s*\(/i.test(s);
+  const nextNonSpace=k=>{while(k<n&&/\s/.test(s[k]))k++;return k;};
+  let i=0,pendTable=null;  // a table token (quoted or bare) awaiting a following [column]
+  while(i<n){
+    const c=s[i];
+    // --- comments: kill any pending table, skip to newline / close ---
+    if(c==='/'&&s[i+1]==='/'){while(i<n&&s[i]!=='\n')i++;pendTable=null;continue;}
+    if(c==='-'&&s[i+1]==='-'){while(i<n&&s[i]!=='\n')i++;pendTable=null;continue;}
+    if(c==='/'&&s[i+1]==='*'){i+=2;while(i<n&&!(s[i]==='*'&&s[i+1]==='/'))i++;i+=2;pendTable=null;continue;}
+    // --- string literal "..." ("" escapes a quote) ---
+    if(c==='"'){
+      let j=i+1,str='';
+      while(j<n){if(s[j]==='"'){if(s[j+1]==='"'){str+='"';j+=2;continue;}break;}str+=s[j];j++;}
+      i=j+1;
+      // "name", <expr>  inside an extension-column function => a local column name
+      if(hasExtFn&&s[nextNonSpace(i)]===',')locals.push(str);
+      pendTable=null;continue;
+    }
+    // --- quoted table name '...' ('' escapes a quote) ---
+    if(c==="'"){
+      let j=i+1,name='';
+      while(j<n){if(s[j]==="'"){if(s[j+1]==="'"){name+="'";j+=2;continue;}break;}name+=s[j];j++;}
+      i=j+1;pendTable=name;
+      if(known&&[...known].some(t=>normName(t)===normName(name)))tabs.add(name);
+      continue;
+    }
+    // --- bracket [...] (']]' escapes a close-bracket) ---
+    if(c==='['){
+      let j=i+1,name='';
+      while(j<n){if(s[j]===']'){if(s[j+1]===']'){name+=']';j+=2;continue;}break;}name+=s[j];j++;}
+      i=j+1;
+      if(pendTable!==null){cols.push({table:pendTable,column:name});pendTable=null;}
+      else names.push(name);            // bare [Measure] / [Column] reference
+      continue;
+    }
+    // --- bare identifier: an unquoted table only if immediately followed by '[' ---
+    if(/[A-Za-z_]/.test(c)){
+      let j=i,id='';while(j<n&&/[A-Za-z0-9_]/.test(s[j])){id+=s[j];j++;}
+      i=j;
+      const k=nextNonSpace(i);
+      if(s[k]==='['){pendTable=id;if(known&&known.has(id))tabs.add(id);}
+      else {if(known&&[...known].some(t=>normName(t)===normName(id))&&s[k]!=='(')tabs.add(id);pendTable=null;}
+      continue;
+    }
+    // any other character (operator, comma, paren, whitespace): a non-space breaks a pending table
+    if(!/\s/.test(c))pendTable=null;
+    i++;
+  }
+  return{columns:cols,names,tables:[...tabs],locals:[...new Set(locals)]};
+}
+function analyzeM(mx){
+  const out={kind:null,details:{},refs:[],nativeQuery:null,functions:[],sources:[],items:[]};
+  if(!mx)return out;
+  const push=(kind,details)=>{out.sources.push({kind,details:details||{}});if(!out.kind){out.kind=kind;out.details=details||{};}};
+  let m;
+  const reSqlDb=/Sql\.Database\s*\(\s*("(?:[^"\\]|\\.)*"|[A-Za-z_][\w]*)\s*(?:,\s*("(?:[^"\\]|\\.)*"|[A-Za-z_][\w]*)\s*)?/g;
+  while((m=reSqlDb.exec(mx))!==null){const d={server:clean(m[1])};if(m[2])d.database=clean(m[2]);out.functions.push('Sql.Database');push('Sql.Database',d);}
+  const reSqls=/Sql\.Databases\s*\(\s*("(?:[^"\\]|\\.)*"|[A-Za-z_][\w]*)/g;
+  while((m=reSqls.exec(mx))!==null){out.functions.push('Sql.Databases');push('Sql.Database',{server:clean(m[1])});}
+  // DB from navigation {[Name="DB"]} when there's also Schema/Item navigation and no 2nd-arg db
+  if(out.sources.length){const navDb=mx.match(/\{\s*\[\s*Name\s*=\s*"([^"]+)"\s*\]\s*\}/);
+    if(navDb&&/\[\s*Schema\s*=/.test(mx)){out.sources.forEach(s=>{if(s.kind==='Sql.Database'&&!s.details.database)s.details.database=navDb[1];});if(out.kind==='Sql.Database'&&!out.details.database)out.details.database=navDb[1];}}
+  const others=[['Synapse',/Synapse\w*\.\w+/],['AnalysisServices.Database',/AnalysisServices\.Database/],
+    ['AzureStorage.Blobs',/AzureStorage\.Blobs/],['AzureStorage.DataLake',/AzureStorage\.DataLake/],
+    ['Lakehouse.Contents',/Lakehouse\.Contents/],['Excel.Workbook',/Excel\.Workbook/],
+    ['Csv.Document',/Csv\.Document/],['Web.Contents',/Web\.Contents\s*\(\s*("(?:[^"\\]|\\.)*"|[^,()]+)/],
+    ['Json.Document',/Json\.Document/],['OData.Feed',/OData\.Feed\s*\(\s*("(?:[^"\\]|\\.)*"|[^,()]+)?/],
+    ['Folder.Files',/Folder\.Files/],['SharePoint.Files',/SharePoint\w*\.\w+/],
+    ['Oracle.Database',/Oracle\.Database\s*\(\s*("(?:[^"\\]|\\.)*"|[A-Za-z_][\w]*)/],
+    ['PostgreSQL.Database',/PostgreSQL\.Database\s*\(\s*("(?:[^"\\]|\\.)*"|[A-Za-z_][\w]*)\s*(?:,\s*("(?:[^"\\]|\\.)*"|[A-Za-z_][\w]*))?/]];
+  for(const[name,re]of others){const mm=mx.match(re);if(mm){out.functions.push(name);const d={};
+    if(name==='Web.Contents'||name==='OData.Feed')d.url=clean(mm[1]);
+    if(name==='Oracle.Database')d.server=clean(mm[1]);
+    if(name==='PostgreSQL.Database'){d.server=clean(mm[1]);if(mm[2])d.database=clean(mm[2]);}
+    push(name,d);}}
+  const items=[...mx.matchAll(/\[\s*Schema\s*=\s*"([^"]+)"\s*,\s*Item\s*=\s*"([^"]+)"\s*\]/g)];
+  if(items.length){out.details.schema=out.details.schema||items[0][1];out.details.item=out.details.item||items[0][2];
+    out.items=items.map(i=>({schema:i[1],item:i[2]}));
+    if(out.sources[0]){out.sources[0].details.schema=out.sources[0].details.schema||items[0][1];out.sources[0].details.item=out.sources[0].details.item||items[0][2];}}
+  if(/Value\.NativeQuery\s*\(/.test(mx)){const q=mx.match(/"((?:[^"\\]|\\.){0,4000}?(?:select|SELECT)[\s\S]*?)"/);if(q)out.nativeQuery=q[1];push('Value.NativeQuery',{});}
+  const reR=/#"([^"]+)"/g;let r;const seen=new Set();while((r=reR.exec(mx))!==null)if(!seen.has(r[1])){seen.add(r[1]);out.refs.push(r[1]);}
+  return out;
+}
+function clean(s){return(s||'').trim().replace(/^"|"$/g,'');}
+
+/* ============================================================ STATE & LOADING ============================================================ */
+const state={model:null,selected:null,knownTables:new Set(),mermaidOK:false,
+  measureIndex:new Map(),columnIndex:new Map(),lastModelMmd:'',lastLinMmd:'',
+  trail:[],trailPos:-1,daxFmt:false,
+  linGraph:null,linKeyToMid:new Map(),linMidToKey:{},modelMidToName:{},
+  isolate:false,pz:{},fg:null,fgPos:null,linRoot:null,mapMode:'schematic',report:null};
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+
+const $=s=>document.querySelector(s);
+const el=(t,c,h)=>{const e=document.createElement(t);if(c)e.className=c;if(h!=null)e.innerHTML=h;return e;};
+
+/* ============================================================ VS CODE DEEP LINKS ============================================================ */
+// Browsers only ever give us paths *relative* to the folder the user picked — never the absolute
+// disk path. So we ask once for the absolute project root, remember it, and join the two.
+function vsRoot(){try{return localStorage.getItem('pbiviz.vsroot')||'';}catch(e){return '';}}
+function setVsRoot(v){try{if(v)localStorage.setItem('pbiviz.vsroot',v);else localStorage.removeItem('pbiviz.vsroot');}catch(e){}updateVsBtn();}
+function updateVsBtn(){const b=$('#vsBtn');if(!b)return;const r=vsRoot();b.classList.toggle('vs-on',!!r);b.title=r?('VS Code links enabled · root: '+r+'\nClick to change or clear.'):'Set the absolute path of your PBIP project folder on disk to enable "Open in VS Code" deep links';}
+function promptVsRoot(){
+  const cur=vsRoot();
+  const v=prompt('Absolute path of the folder you open in this tool\n(e.g. C:\\Repos\\Finance.pbip  or  /Users/me/repos/finance)\n\nLeave empty to disable VS Code links.',cur);
+  if(v===null)return false;            // cancelled
+  setVsRoot(v.trim());
+  return !!v.trim();
+}
+function codeURL(file,line){
+  let root=vsRoot();if(!root||!file)return null;
+  root=root.replace(/\\/g,'/').replace(/\/+$/,'');
+  let rel=String(file).replace(/\\/g,'/').replace(/^\/+/,'');
+  // folder pickers sometimes include the picked folder's own name in the relative path —
+  // if the first segment of the file path matches the last segment of the root, drop it.
+  const last=(root.split('/').pop()||'').toLowerCase();
+  const first=(rel.split('/')[0]||'').toLowerCase();
+  if(last&&first===last)rel=rel.split('/').slice(1).join('/');
+  let p=root+'/'+rel;
+  if(!/^[a-zA-Z]:/.test(p)&&!p.startsWith('/'))p='/'+p;
+  return 'vscode://file/'+encodeURI(p)+(line?(':'+line):'');
+}
+function openInVSCode(file,line){
+  if(!vsRoot()&&!promptVsRoot())return;
+  const url=codeURL(file,line);
+  if(!url){$('#status').textContent='No file path recorded for this item';return;}
+  const a=document.createElement('a');a.href=url;document.body.appendChild(a);a.click();a.remove();
+  const s=$('#status');const o=s.textContent;s.textContent='Opening in VS Code… ⌁';setTimeout(()=>s.textContent=o,1500);
+}
+document.addEventListener('DOMContentLoaded',updateVsBtn);
+setTimeout(updateVsBtn,0);
+$('#vsBtn').onclick=promptVsRoot;
+
+$('#openBtn').onclick=async()=>{
+  if(window.showDirectoryPicker&&window.isSecureContext){
+    try{const dir=await window.showDirectoryPicker();const files=[];await walkFSA(dir,dir.name,files);loadFiles(files);return;}
+    catch(e){if(e&&e.name==='AbortError')return;}
+  }
+  $('#dirInput').click();
+};
+$('#dirInput').onchange=e=>{
+  const list=[...e.target.files].filter(f=>{const n=f.name.toLowerCase();const p=(f.webkitRelativePath||'').toLowerCase();
+    return n.endsWith('.tmdl')||(n.endsWith('.json')&&p.includes('.report/'));});
+  Promise.all(list.map(f=>f.text().then(text=>({path:f.webkitRelativePath||f.name,text}))))
+    .then(loadFiles).catch(e=>{$('#status').textContent='Unable to read folder: '+e.message;});
+};
+async function walkFSA(dir,prefix,out){
+  for await(const[name,handle]of dir.entries()){
+    const p=prefix?prefix+'/'+name:name;
+    if(handle.kind==='file'){
+      const n=name.toLowerCase();
+      if(n.endsWith('.tmdl')||(n.endsWith('.json')&&p.toLowerCase().includes('.report/'))){
+        const f=await handle.getFile();out.push({path:p,text:await f.text()});
+      }
+    }
+    else if(handle.kind==='directory'){await walkFSA(handle,p,out);}
+  }
+}
+function loadFiles(allFiles){
+  const roots=new Set(allFiles.map(f=>f.path.match(/^(.*?\.SemanticModel)\//i)?.[1]).filter(Boolean));
+  const reports=new Set(allFiles.map(f=>f.path.match(/^(.*?\.Report)\//i)?.[1]).filter(Boolean));
+  if(roots.size>1||reports.size>1){$('#status').textContent='Choose one PBIP project at a time; multiple models or reports were found.';return;}
+  const files=allFiles.filter(f=>f.path.toLowerCase().endsWith('.tmdl'));
+  const reportFiles=allFiles.filter(f=>{const p=f.path.toLowerCase();return p.endsWith('.json')&&p.includes('.report/');});
+  if(!files.length){$('#status').textContent='No .tmdl files found — point the picker at the .pbip project folder';return;}
+  const model=parseModel(files);
+  state.model=model;state.selected=null;state.linRoot=null;state.trail=[];state.trailPos=-1;state._audit=null;state.pz={};state.lastLinMmd='';
+  $('#search').value='';$('#hopSel').value='1';$('#detailToolbar').style.display='none';$('#detailBody').innerHTML='<div class=empty>Select an item to inspect its source.</div>';$('#lineageDiagram').innerHTML='<div class=empty>Select a measure or column to trace.</div>';
+  state.knownTables=new Set(Object.keys(model.tables));
+  // DAX is case-insensitive; the model keys may differ in case/whitespace from how the DAX
+  // references them. Build a normalised lookup so table/column resolution matches DAX behaviour.
+  state.tableByNorm=new Map();
+  Object.values(model.tables).forEach(t=>state.tableByNorm.set(normName(t.name),t));
+  state.fgPos=null;if(state.fg){cancelAnimationFrame(state.fg.raf);state.fg=null;}
+  state.measureIndex=new Map();model.measures.forEach(m=>{if(!state.measureIndex.has(m.name))state.measureIndex.set(m.name,[]);state.measureIndex.get(m.name).push(m);});
+  state.columnIndex=new Map();model.columns.forEach(c=>{if(!state.columnIndex.has(c.name))state.columnIndex.set(c.name,[]);state.columnIndex.get(c.name).push(c);});
+  // report layer (PBIR) — optional; present only if a .Report folder was included
+  state.report=reportFiles.length?parseReport(reportFiles):null;
+  const name=files[0].path.split('/').find(p=>/\.SemanticModel$/i.test(p))||model.modelInfo.name||'model';
+  $('#status').textContent=name+'  ·  '+files.length+' model files'+(state.report?'  ·  '+state.report.pages.length+' report pages':'');
+  $('#sT').textContent=Object.keys(model.tables).length;
+  $('#sM').textContent=model.measures.length;
+  $('#sC').textContent=model.columns.length;
+  $('#sR').textContent=model.relationships.length;
+  $('#stats').style.display='flex';
+  // show/hide the Report tab depending on whether report files were found
+  const rt=$('#reportTab');if(rt)rt.style.display=state.report&&state.report.pages.length?'':'none';
+  buildTreeUI();populateFocus();populateReportPages();showView('model');
+}
+
+/* ============================================================ REPORT LAYER (PBIR) ============================================================ */
+function parseReport(reportFiles){
+  // group files by page folder:  .../pages/<pageId>/page.json  and  .../pages/<pageId>/visuals/<id>/visual.json
+  const pageMap=new Map();
+  function pageKey(path){const m=path.match(/pages\/([^/]+)\//i);return m?m[1]:null;}
+  // first pass: page.json
+  for(const f of reportFiles){
+    if(!/\/page\.json$/i.test(f.path))continue;
+    const key=pageKey(f.path);if(!key)continue;
+    let pj;try{pj=JSON.parse(f.text);}catch(e){continue;}
+    pageMap.set(key,{id:pj.name||key,name:pj.displayName||pj.name||key,width:pj.width||1280,height:pj.height||720,ordinal:pj.ordinal,file:f.path,visuals:[]});
+  }
+  // second pass: visual.json
+  for(const f of reportFiles){
+    if(!/\/visual\.json$/i.test(f.path))continue;
+    const key=pageKey(f.path);if(!key)continue;
+    let vj;try{vj=JSON.parse(f.text);}catch(e){continue;}
+    let page=pageMap.get(key);
+    if(!page){page={id:key,name:key,width:1280,height:720,visuals:[]};pageMap.set(key,page);}
+    page.visuals.push(parseVisual(vj,f.path));
+  }
+  let order=[];for(const f of reportFiles)if(/\/pages\.json$/i.test(f.path)){try{order=JSON.parse(f.text).pageOrder||[];}catch(e){}}
+  const pages=[...pageMap.values()];
+  pages.forEach(p=>p.visuals.sort((a,b)=>a.z-b.z));
+  pages.sort((a,b)=>{const ai=order.indexOf(a.id),bi=order.indexOf(b.id);return (ai<0?999:ai)-(bi<0?999:bi)||(a.ordinal??999)-(b.ordinal??999)||a.name.localeCompare(b.name);});
+  return {pages};
+}
+function parseVisual(vj,file){
+  const v=vj.visual||{};const pos=vj.position||{};
+  return {
+    id:vj.name,type:v.visualType||(vj.visualGroup?'group':'visual'),
+    x:pos.x||0,y:pos.y||0,z:pos.z||0,w:pos.width||0,h:pos.height||0,
+    file:file||null,
+    title:reportVisualTitle(v),fields:extractVisualFields(v)
+  };
+}
+function reportVisualTitle(v){
+  try{const t=v.objects.title[0].properties.text.expr.Literal.Value;if(t)return String(t).replace(/^'|'$/g,'');}catch(e){}
+  return null;
+}
+function extractVisualFields(v){
+  const out=[];const qs=v.query&&v.query.queryState;if(!qs)return out;
+  for(const role of Object.keys(qs)){
+    const projs=(qs[role]&&qs[role].projections)||[];
+    for(const p of projs){
+      const f=p.field||{};let kind=null,entity=null,prop=null;
+      if(f.Measure){kind='measure';entity=srcRef(f.Measure);prop=f.Measure.Property;}
+      else if(f.Column){kind='column';entity=srcRef(f.Column);prop=f.Column.Property;}
+      else if(f.Aggregation&&f.Aggregation.Expression&&f.Aggregation.Expression.Column){const c=f.Aggregation.Expression.Column;kind='column';entity=srcRef(c);prop=c.Property;}
+      else if(f.HierarchyLevel){kind='hierarchy';prop=p.nativeQueryRef||(p.queryRef||'');}
+      else {kind='other';prop=p.nativeQueryRef||p.queryRef||'(dynamic)';}
+      out.push({role,kind,table:entity,name:prop,queryRef:p.queryRef||null});
+    }
+  }
+  return out;
+}
+function srcRef(o){try{return o.Expression.SourceRef.Entity;}catch(e){return null;}}
+
+/* ---- report rendering ---- */
+function populateReportPages(){
+  const sel=$('#reportPageSel');if(!sel)return;
+  if(!state.report||!state.report.pages.length){sel.innerHTML='';return;}
+  sel.innerHTML=state.report.pages.map((p,i)=>`<option value="${i}">${esc(p.name)} · ${p.visuals.length} visuals</option>`).join('');
+  sel.onchange=()=>renderReport(+sel.value);
+  const xb=$('#reportExport');if(xb)xb.onclick=()=>openExportMenu(xb);
+  const pvs=$('#reportPageVs');
+  if(pvs)pvs.onclick=()=>{const i=sel.value?+sel.value:0;const p=state.report.pages[i];if(p&&p.file)openInVSCode(p.file,1);else $('#status').textContent='No page.json path recorded';};
+  $('#reportLegend').innerHTML=`<span><i class="swatch" style="background:#7bbf6a"></i>measure</span><span><i class="swatch" style="background:#54c7d6"></i>column</span><span><i class="swatch" style="background:#5a6573"></i>no fields</span>`;
+}
+const RPT_TYPE_LABEL={card:'Card',multiRowCard:'Multi-row card',barChart:'Bar',clusteredBarChart:'Bar',columnChart:'Column',clusteredColumnChart:'Column',lineChart:'Line',lineClusteredColumnComboChart:'Combo',pieChart:'Pie',donutChart:'Donut',tableEx:'Table',pivotTable:'Matrix',matrix:'Matrix',slicer:'Slicer',map:'Map',gauge:'Gauge',kpi:'KPI',scatterChart:'Scatter',textbox:'Text',image:'Image',shape:'Shape',actionButton:'Button'};
+function renderReport(idx){
+  const host=$('#reportCanvas');if(!host)return;host.innerHTML='';
+  if(!state.report||!state.report.pages.length){host.innerHTML='<div class="rpt-empty-page">No report pages found.</div>';return;}
+  idx=idx||0;const page=state.report.pages[idx];if(!page)return;
+  const hb=host.getBoundingClientRect();
+  const availW=Math.max(400,(hb.width||900)-48),availH=Math.max(300,(hb.height||560)-48);
+  const k=Math.min(availW/page.width,availH/page.height);
+  const stage=document.createElement('div');stage.className='rpt-stage';
+  stage.style.width=Math.round(page.width*k)+'px';stage.style.height=Math.round(page.height*k)+'px';
+  stage.style.marginTop='24px';
+  for(const v of page.visuals){
+    const el=document.createElement('div');
+    el.className='rpt-vis type-'+v.type+(v.fields.some(f=>f.kind==='measure')?' has-measure':'');
+    el.style.left=Math.round(v.x*k)+'px';el.style.top=Math.round(v.y*k)+'px';
+    el.style.width=Math.max(8,Math.round(v.w*k))+'px';el.style.height=Math.max(8,Math.round(v.h*k))+'px';
+    const label=(RPT_TYPE_LABEL[v.type]||v.type)+(v.title?' · '+v.title:'');
+    const head=document.createElement('div');head.className='rv-head';
+    head.innerHTML=`<span class="rv-label">${esc(label)}</span>`;
+    if(v.file){
+      const vs=document.createElement('span');vs.className='rv-vs';vs.textContent='⌁';
+      vs.title='Open this visual.json in VS Code';
+      vs.onclick=ev=>{ev.stopPropagation();openInVSCode(v.file,1);};
+      head.appendChild(vs);
+    }
+    el.appendChild(head);
+    if(v.h*k>34){
+      const body=document.createElement('div');body.className='rv-body';
+      const shown=v.fields.slice(0,6);
+      shown.forEach(f=>{
+        const cls=f.kind==='measure'?'rv-m':(f.kind==='column'?'rv-c':'rv-x');
+        const sym=f.kind==='measure'?'ƒ ':(f.kind==='column'?'▦ ':'• ');
+        const fr=document.createElement('div');fr.className=cls;fr.innerHTML=sym+esc(f.name||'(dynamic)');
+        // resolve the binding back to its model object so the pill can deep-link to TMDL
+        let tgt=null;
+        if(f.kind==='measure'){const r=resolveName(f.name);if(r&&r.type==='measure')tgt=r.node;}
+        else if(f.kind==='column'){tgt=findColumn(f.table,f.name);}
+        if(tgt&&tgt.file){
+          fr.classList.add('rv-link');
+          fr.title='Open '+(f.name)+' in VS Code ('+tgt.file.split('/').pop()+(tgt.line?':'+tgt.line:'')+')';
+          fr.onclick=ev=>{ev.stopPropagation();openInVSCode(tgt.file,tgt.line);};
+        }
+        body.appendChild(fr);
+      });
+      if(v.fields.length>6){const x=document.createElement('div');x.className='rv-x';x.textContent=`+${v.fields.length-6} more…`;body.appendChild(x);}
+      if(!v.fields.length){const x=document.createElement('div');x.className='rv-x';x.textContent='no field bindings';body.appendChild(x);}
+      el.appendChild(body);
+    }
+    el.title=label+'\n'+(v.fields.map(f=>`[${f.role}] ${f.name}`).join('\n')||'no fields')+(v.file?'\n\nclick: trace measure · ⌁ or right-click: open in VS Code':'');
+    el.onclick=()=>traceVisual(v);
+    el.oncontextmenu=ev=>{if(v.file){ev.preventDefault();openInVSCode(v.file,1);}};
+    stage.appendChild(el);
+  }
+  host.appendChild(stage);
+}
+/* ---- component inventory export ---- */
+// Walk the visuals on a page (or the whole report) and collect every field binding, folding
+// duplicates so a measure used in eight visuals shows once with a count. We also reconcile
+// each binding against the model so the export carries the real source table + health, not
+// just whatever the report author happened to type.
+function collectComponents(scope){
+  if(!state.report||!state.report.pages.length)return[];
+  const pages=scope==='all'?state.report.pages:[state.report.pages[scope]||state.report.pages[0]];
+  const map=new Map();   // key -> row
+  for(const p of pages){
+    for(const v of p.visuals){
+      const vlabel=(RPT_TYPE_LABEL[v.type]||v.type)+(v.title?' · '+v.title:'');
+      for(const f of v.fields){
+        if(f.kind!=='measure'&&f.kind!=='column')continue;   // skip hierarchy/dynamic/other
+        const key=f.kind+'|'+normName(f.table||'')+'|'+normName(f.name||'');
+        let r=map.get(key);
+        if(!r){
+          // resolve against the model to recover the true home table + broken state
+          let home=f.table||'',broken='';
+          if(f.kind==='measure'){const res=resolveName(f.name);if(res&&res.type==='measure')home=res.node.table;}
+          else {const col=findColumn(f.table,f.name);if(col)home=col.table;}
+          r={kind:f.kind,name:f.name||'(dynamic)',table:home,roles:new Set(),pages:new Set(),visuals:0};
+          map.set(key,r);
+        }
+        if(f.role)r.roles.add(f.role);
+        r.pages.add(p.name);r.visuals++;
+      }
+    }
+  }
+  return [...map.values()].sort((a,b)=>
+    (a.kind===b.kind?0:(a.kind==='measure'?-1:1))||
+    a.table.localeCompare(b.table)||a.name.localeCompare(b.name));
+}
+function exportComponents(scope,fmt){
+  const rows=collectComponents(scope);
+  const pageName=scope==='all'?'all-pages':(state.report.pages[scope]?slug(state.report.pages[scope].name):'page');
+  if(!rows.length){$('#status').textContent='No measure/column bindings found to export';return;}
+  if(fmt==='md'){
+    let md=`# Report components — ${scope==='all'?'all pages':state.report.pages[scope].name}\n\n`;
+    const ms=rows.filter(r=>r.kind==='measure'),cs=rows.filter(r=>r.kind==='column');
+    const tbl=arr=>{let o='| Name | Table | Used in | Roles |\n|---|---|---|---|\n';
+      arr.forEach(r=>o+=`| ${r.name} | ${r.table||'—'} | ${r.visuals} visual${r.visuals===1?'':'s'} | ${[...r.roles].join(', ')} |\n`);return o+'\n';};
+    if(ms.length)md+=`## Measures (${ms.length})\n\n`+tbl(ms);
+    if(cs.length)md+=`## Columns (${cs.length})\n\n`+tbl(cs);
+    downloadText(`components-${pageName}.md`,md);
+  } else {
+    const q=s=>'"'+String(s==null?'':s).replace(/"/g,'""')+'"';
+    const lines=['kind,name,table,used_in_visuals,roles'+(scope==='all'?',pages':'')];
+    rows.forEach(r=>lines.push([r.kind,q(r.name),q(r.table),r.visuals,q([...r.roles].join('; '))]
+      .concat(scope==='all'?[q([...r.pages].join('; '))]:[]).join(',')));
+    downloadText(`components-${pageName}.csv`,lines.join('\n'));
+  }
+  const ms=rows.filter(r=>r.kind==='measure').length,cs=rows.length-ms;
+  $('#status').textContent=`Exported ${ms} measure${ms===1?'':'s'} · ${cs} column${cs===1?'':'s'}`;
+}
+function slug(s){return String(s||'page').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'')||'page';}
+// small popover offering page/all × csv/markdown
+function openExportMenu(btn){
+  document.querySelectorAll('.exp-menu').forEach(m=>m.remove());
+  const idx=(()=>{const s=$('#reportPageSel');return s&&s.value?+s.value:0;})();
+  const pname=state.report&&state.report.pages[idx]?state.report.pages[idx].name:'this page';
+  const m=document.createElement('div');m.className='exp-menu';
+  m.innerHTML=
+    `<div class="exp-grp">This page <span class="exp-sub">${esc(pname)}</span></div>`+
+    `<div class="exp-item" data-s="${idx}" data-f="csv">⤓ CSV</div>`+
+    `<div class="exp-item" data-s="${idx}" data-f="md">⤓ Markdown table</div>`+
+    `<div class="exp-grp">Whole report <span class="exp-sub">${state.report.pages.length} pages</span></div>`+
+    `<div class="exp-item" data-s="all" data-f="csv">⤓ CSV</div>`+
+    `<div class="exp-item" data-s="all" data-f="md">⤓ Markdown table</div>`;
+  document.body.appendChild(m);
+  const r=btn.getBoundingClientRect();
+  m.style.top=(r.bottom+6)+'px';
+  m.style.left=Math.max(8,Math.min(r.left,window.innerWidth-m.offsetWidth-8))+'px';
+  m.querySelectorAll('.exp-item').forEach(it=>it.onclick=()=>{
+    exportComponents(it.dataset.s==='all'?'all':+it.dataset.s,it.dataset.f);m.remove();
+  });
+  setTimeout(()=>{const close=e=>{if(!m.contains(e.target)&&e.target!==btn){m.remove();document.removeEventListener('mousedown',close);}};document.addEventListener('mousedown',close);},0);
+}
+
+function traceVisual(v){
+  const measures=v.fields.filter(f=>f.kind==='measure');
+  if(!measures.length){$('#status').textContent=`"${RPT_TYPE_LABEL[v.type]||v.type}" has no explicit measure to trace`;return;}
+  const target=measures[0];let node=null;
+  if(state.measureIndex.has(target.name)){
+    const cands=state.measureIndex.get(target.name);
+    node=cands.find(m=>normName(m.table)===normName(target.table))||cands[0];
+  }
+  if(!node){for(const arr of state.measureIndex.values()){const hit=arr.find(m=>normName(m.name)===normName(target.name));if(hit){node=hit;break;}}}
+  if(!node){$('#status').textContent=`Measure "${target.name}" not found in the model`;return;}
+  state.selected={type:'measure',ref:node};
+  state.linRoot={type:'measure',ref:node};
+  state.trail=[{type:'measure',ref:node}];state.trailPos=0;
+  highlightSidebar(node.name);
+  showView('lineage');
+}
+/* ============================================================ MEASURE AUDIT (usage + health) ============================================================ */
+// A measure counts as "used" if it is bound to a report visual, or sits anywhere upstream
+// of one that is (transitive). Health has two tiers, mirroring how Power BI actually fails:
+//   root      — this expression itself has unresolved references / structural problems
+//   inherited — every reference resolves, but something it depends on (measure OR
+//               calculated column, transitively) is broken, so it errors in the report too
+// Heuristic, static, client-side — it catches dangling references after renames/deletes,
+// not type errors or invalid function usage.
+let _auditFilter='all';
+function exprMissingRefs(expr){
+  const out=[];
+  if(!expr||!String(expr).trim()){out.push('(empty expression)');return out;}
+  const d=analyzeDax(expr,state.knownTables);
+  const locals=new Set(d.locals||[]);
+  new Set(d.names).forEach(n=>{
+    if(locals.has(n))return;
+    if(!resolveName(n))out.push('['+n+']');
+  });
+  dedup(d.columns).forEach(c=>{
+    if(!findColumn(c.table,c.column)&&!findMeasure(c.table,c.column))out.push((getTable(c.table)?c.table:('⁇'+c.table))+'['+c.column+']');
+  });
+  // structural smells: count brackets on string/comment-masked text
+  const e=String(expr).replace(/'(?:[^']|'')*'/g,' ').replace(/\[(?:[^\]]|\]\])*\]/g,' ').replace(/"(?:[^"\\]|\\.)*"/g,'""')
+    .replace(/\/\*[\s\S]*?\*\//g,' ').replace(/\/\/[^\n]*/g,' ').replace(/--[^\n]*/g,' ');
+  let p=0,b=0;for(const ch of e){if(ch==='(')p++;else if(ch===')')p--;else if(ch==='[')b++;else if(ch===']')b--;}
+  if(p!==0)out.push('(unbalanced parentheses)');
+  if(b!==0)out.push('(unbalanced brackets)');
+  return out;
+}
+function computeAudit(){
+  const ms=state.model.measures;
+  const calcCols=state.model.columns.filter(c=>c.isCalculated);
+  const hasReport=!!(state.report&&state.report.pages.length);
+  const mKey=m=>'m|'+normName(m.name);
+  const cKey=c=>'c|'+normName(c.table)+'|'+normName(c.name);
+  // ---- one dependency graph across measures AND calculated columns ----
+  const nodes=new Map();   // key -> {kind,ref,missing,deps:[keys]}
+  const resolveDeps=expr=>{
+    const d=analyzeDax(expr,state.knownTables);
+    const locals=new Set(d.locals||[]);
+    const deps=[];
+    new Set(d.names).forEach(n=>{
+      if(locals.has(n))return;
+      const r=resolveName(n);
+      if(r&&r.type==='measure')deps.push(mKey(r.node));
+      else if(r&&r.type==='column'&&r.node.isCalculated)deps.push(cKey(r.node));
+    });
+    dedup(d.columns).forEach(c=>{
+      const qm=findMeasure(c.table,c.column);if(qm)deps.push(mKey(qm));
+      const col=findColumn(c.table,c.column);
+      if(col&&col.isCalculated)deps.push(cKey(col));
+    });
+    return deps;
+  };
+  for(const m of ms)nodes.set(mKey(m),{kind:'measure',ref:m,missing:exprMissingRefs(m.expression),deps:resolveDeps(m.expression)});
+  for(const c of calcCols)nodes.set(cKey(c),{kind:'column',ref:c,missing:exprMissingRefs(c.expression),deps:resolveDeps(c.expression)});
+  // ---- propagate brokenness downstream to a fixpoint ----
+  const broken=new Map();  // key -> {root:bool, via:key|null}
+  nodes.forEach((n,k)=>{if(n.missing.length)broken.set(k,{root:true,via:null});});
+  let changed=true;
+  while(changed){
+    changed=false;
+    nodes.forEach((n,k)=>{
+      if(broken.has(k))return;
+      const bad=n.deps.find(d=>broken.has(d));
+      if(bad){broken.set(k,{root:false,via:bad});changed=true;}
+    });
+  }
+  const nodeLabel=k=>{const n=nodes.get(k);if(!n)return k;
+    return n.kind==='measure'?('ƒ '+n.ref.name):(n.ref.table+'['+n.ref.name+']');};
+  // ---- usage (measures only) ----
+  const visUse=new Map();
+  if(hasReport)for(const p of state.report.pages)for(const v of p.visuals)for(const f of v.fields)
+    if(f.kind==='measure'&&f.name)visUse.set(normName(f.name),(visUse.get(normName(f.name))||0)+1);
+  const refBy=new Map();
+  nodes.forEach(n=>n.deps.forEach(d=>refBy.set(d,(refBy.get(d)||0)+1)));
+  const used=new Set([...visUse.keys()].map(k=>'m|'+k));
+  const stack=[...used];
+  while(stack.length){const k=stack.pop();const n=nodes.get(k);if(!n)continue;
+    for(const d of n.deps)if(!used.has(d)){used.add(d);stack.push(d);}}
+  // ---- measure rows ----
+  const rows=ms.map(m=>{
+    const k=mKey(m);
+    const b=broken.get(k)||null;
+    const direct=visUse.get(normName(m.name))||0;
+    let status;
+    if(!hasReport)status=(refBy.get(k)||0)>0?'feeds':'unknown';
+    else if(direct>0)status='inrep';
+    else if(used.has(k))status='feeds';
+    else if((refBy.get(k)||0)>0)status='refonly';
+    else status='unused';
+    return {m,direct,refBy:refBy.get(k)||0,
+      missing:b&&b.root?nodes.get(k).missing:[],
+      inherit:b&&!b.root?nodeLabel(b.via):null,
+      broken:!!b,status,unused:hasReport?!used.has(k):false};
+  });
+  // ---- broken calculated columns (root causes that live outside the measure list) ----
+  const brokenCols=calcCols.map(c=>{
+    const b=broken.get(cKey(c));if(!b)return null;
+    return {c,missing:b.root?nodes.get(cKey(c)).missing:[],inherit:b.root?null:nodeLabel(b.via)};
+  }).filter(Boolean);
+  const nRoot=rows.filter(r=>r.missing.length).length+brokenCols.filter(r=>r.missing.length).length;
+  const nInherit=rows.filter(r=>r.inherit).length+brokenCols.filter(r=>r.inherit).length;
+  return {rows,brokenCols,hasReport,
+    counts:{total:rows.length,unused:rows.filter(r=>r.unused).length,
+      broken:rows.filter(r=>r.broken).length,root:nRoot,inherited:nInherit}};
+}
+const AUDIT_STATUS_LABEL={inrep:v=>`in report · ${v} visual${v===1?'':'s'}`,feeds:()=>'referenced upstream',
+  refonly:()=>'referenced; no report usage observed',unused:()=>'not observed in bindings',unknown:()=>'usage unknown'};
+function renderAudit(){
+  const host=$('#auditBody');if(!host)return;
+  if(!state.model){host.innerHTML='<div class="empty"><div class="big">Load a model to audit its measures</div></div>';$('#auditSummary').textContent='';return;}
+  const a=computeAudit();state._audit=a;
+  $('#auditSummary').textContent=`${a.counts.total} measures · ${a.hasReport?a.counts.unused+' not observed · ':''}${a.counts.broken+a.brokenCols.length} flagged (${a.counts.root} root · ${a.counts.inherited} inherited)`;
+  let rows=a.rows;
+  if(_auditFilter==='unused')rows=rows.filter(r=>a.hasReport?r.unused:r.refBy===0);
+  if(_auditFilter==='broken')rows=rows.filter(r=>r.broken);
+  // roots first, then inherited, then unused, then alphabetical
+  rows=[...rows].sort((x,y)=>(y.missing.length?1:0)-(x.missing.length?1:0)||(y.inherit?1:0)-(x.inherit?1:0)||(y.unused?1:0)-(x.unused?1:0)||x.m.name.localeCompare(y.m.name));
+  let html='<div class="audit-note">Static review of the loaded files, not a DAX engine validation. “Not observed” means no usage found in the scanned visual bindings. Filters, conditional formatting, field parameters, calculation groups and other reports may still use these measures. Do not use this list alone to delete objects.</div>';
+  if(!a.hasReport)html+=`<div class="audit-note">No report layer loaded. Usage is unknown. The Not observed filter shows measures with no detected calculation dependents; include the .Report folder to also scan visual bindings.</div>`;
+  // broken calculated columns: often the root cause of a cascade, so surface them first
+  if(a.brokenCols.length&&_auditFilter!=='unused'){
+    html+=`<div class="audit-sec">Broken calculated columns · ${a.brokenCols.length}</div>`;
+    a.brokenCols.forEach((r,i)=>{
+      html+=`<div class="audit-row" data-ci="${i}">`+
+        `<span class="aw warn">⚠</span>`+
+        `<span class="an" style="color:var(--violet)">∑ ${esc(r.c.table)}[${esc(r.c.name)}]</span>`+
+        `<span class="as"><span class="astat unused">${r.missing.length?'root cause':'inherited'}</span></span></div>`;
+      if(r.missing.length)html+=`<div class="audit-miss">unresolved: ${r.missing.slice(0,4).map(x=>`<code>${esc(x)}</code>`).join('')}${r.missing.length>4?` +${r.missing.length-4} more`:''}</div>`;
+      else html+=`<div class="audit-miss">inherits error from <code>${esc(r.inherit)}</code></div>`;
+    });
+    html+=`<div class="audit-sec">Measures · ${rows.length}</div>`;
+  }
+  if(!rows.length&&!a.brokenCols.length)html+='<div class="empty" style="height:auto;padding:40px"><div class="big">Nothing matches this filter 🎉</div></div>';
+  rows.forEach((r,i)=>{
+    html+=`<div class="audit-row" data-ai="${i}">`+
+      `<span class="aw ${r.broken?'warn':'ok'}" title="${r.broken?(r.missing.length?esc(r.missing.length+' unresolved reference(s)'):'inherits an upstream error'):'all references resolve'}">${r.broken?'⚠':'✓'}</span>`+
+      `<span class="an">ƒ ${esc(r.m.name)}</span>`+
+      `<span class="at">${esc(r.m.table)}</span>`+
+      `<span class="as">`+
+        (r.refBy?`<span class="at" title="referenced by ${r.refBy} other measure(s)/column(s)">↩ ${r.refBy}</span>`:'')+
+        `<span class="astat ${r.status}">${AUDIT_STATUS_LABEL[r.status](r.direct)}</span>`+
+      `</span></div>`;
+    if(r.missing.length){
+      html+=`<div class="audit-miss">unresolved: ${r.missing.slice(0,4).map(x=>`<code>${esc(x)}</code>`).join('')}${r.missing.length>4?` +${r.missing.length-4} more`:''}</div>`;
+    } else if(r.inherit){
+      html+=`<div class="audit-miss">inherits error from <code>${esc(r.inherit)}</code></div>`;
+    }
+  });
+  host.innerHTML=html;
+  state._auditRows=rows;state._auditCols=a.brokenCols;
+  host.querySelectorAll('.audit-row[data-ai]').forEach(el=>el.onclick=()=>{
+    const r=state._auditRows[+el.dataset.ai];if(r)select({type:'measure',ref:r.m});
+  });
+  host.querySelectorAll('.audit-row[data-ci]').forEach(el=>el.onclick=()=>{
+    const r=state._auditCols[+el.dataset.ci];if(r)select({type:'column',ref:r.c});
+  });
+}
+document.querySelectorAll('#auditFilter .seg-btn').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('#auditFilter .seg-btn').forEach(x=>x.classList.toggle('active',x===b));
+  _auditFilter=b.dataset.f;renderAudit();
+});
+$('#auditCsv').onclick=()=>{
+  if(!state.model)return;const a=state._audit||computeAudit();if(!a)return;
+  const esc2=s=>'"'+String(s==null?'':s).replace(/"/g,'""')+'"';
+  const lines=['object,kind,table,status,visuals,referenced_by,health,detail'];
+  a.rows.forEach(r=>lines.push([esc2(r.m.name),'measure',esc2(r.m.table),r.status,r.direct,r.refBy,
+    r.missing.length?'broken-root':(r.inherit?'broken-inherited':'ok'),
+    esc2(r.missing.length?r.missing.join('; '):(r.inherit?'inherits from '+r.inherit:''))].join(',')));
+  a.brokenCols.forEach(r=>lines.push([esc2(r.c.name),'calc column',esc2(r.c.table),'',' ','',
+    r.missing.length?'broken-root':'broken-inherited',
+    esc2(r.missing.length?r.missing.join('; '):('inherits from '+r.inherit))].join(',')));
+  downloadText('measure-audit.csv',lines.join('\n'));
+};
+
+function buildTreeUI(){
+  const tree=$('#tree');tree.innerHTML='';const m=state.model;
+  const q=($('#search').value||'').toLowerCase();
+  const match=s=>!q||(s||'').toLowerCase().includes(q);
+
+  // TABLES section (each expandable -> columns + measures)
+  const tSec=section('Tables',Object.keys(m.tables).length);
+  for(const t of Object.values(m.tables).sort((a,b)=>a.name.localeCompare(b.name))){
+    const cols=t.columns.filter(c=>match(c.name));
+    const meas=t.measures.filter(x=>match(x.name));
+    if(!match(t.name)&&!cols.length&&!meas.length)continue;
+    const tn=el('div','tnode');
+    const head=el('div','node');
+    head.innerHTML=`<span class="twist">▶</span><span class="ic ${t.isCalculated?'cal':'tbl'}">▦</span><span>${esc(t.name)}</span><span class="sub">${t.columns.length}c · ${t.measures.length}m</span>`;
+    head.onclick=ev=>{if(ev.target.classList.contains('twist')||!ev.shiftKey){tn.classList.toggle('open');} select({type:'table',ref:t});};
+    tn.appendChild(head);
+    const kids=el('div','tchildren');
+    meas.forEach(x=>kids.appendChild(leaf('mea','ƒ',x.name,'',()=>select({type:'measure',ref:x}))));
+    cols.sort((a,b)=>a.name.localeCompare(b.name)).forEach(c=>kids.appendChild(leaf(c.isCalculated?'cal':'col',c.isCalculated?'∑':'▪',c.name,c.dataType||'',()=>select({type:'column',ref:c}))));
+    tn.appendChild(kids);
+    if(q&&(cols.length||meas.length))tn.classList.add('open');
+    tSec.body.appendChild(tn);
+  }
+  tree.appendChild(tSec.wrap);
+
+  // MEASURES flat
+  const allM=m.measures.filter(x=>match(x.name)).sort((a,b)=>a.name.localeCompare(b.name));
+  const mSec=section('Measures',allM.length);
+  allM.forEach(x=>mSec.body.appendChild(leaf('mea','ƒ',x.name,x.table,()=>select({type:'measure',ref:x}))));
+  tree.appendChild(mSec.wrap);
+
+  // RELATIONSHIPS
+  const rSec=section('Relationships',m.relationships.length);
+  m.relationships.filter(r=>match(r.fromColumn)||match(r.toColumn)).forEach(r=>{
+    const lbl=`${r.fromColumn} → ${r.toColumn}`;
+    mSecLeaf(rSec,'rel','⇿',lbl,r.isActive?'':'inactive',()=>{$('#focusSel').value=r.fromTable;showView('model');renderModel();});
+  });
+  tree.appendChild(rSec.wrap);
+
+  // SOURCES (shared expressions / parameters)
+  const eSec=section('Sources & Expressions',m.expressions.length);
+  m.expressions.filter(x=>match(x.name)).forEach(x=>eSec.body.appendChild(leaf('src','◇',x.name,x.kind||'',()=>select({type:'expression',ref:x}))));
+  tree.appendChild(eSec.wrap);
+
+  if(m.fileErrors.length){const w=el('div','',`<div class="err" style="padding:10px">${m.fileErrors.length} file(s) failed to parse</div>`);tree.appendChild(w);}
+}
+function section(title,count){
+  const wrap=el('div','sec');const h=el('div','sec-h',`<span class="chev">▾</span>${title}<span class="count">${count}</span>`);
+  const body=el('div','sec-body');h.onclick=()=>wrap.classList.toggle('collapsed');wrap.appendChild(h);wrap.appendChild(body);return{wrap,body};
+}
+function leaf(icCls,ic,label,sub,onclick){
+  const n=el('div','node');n.innerHTML=`<span class="ic ${icCls}">${ic}</span><span>${esc(label)}</span>`+(sub?`<span class="sub">${esc(sub)}</span>`:'');
+  n.onclick=onclick;n._label=label;return n;
+}
+function mSecLeaf(sec,c,ic,label,sub,onclick){sec.body.appendChild(leaf(c,ic,label,sub,onclick));}
+
+function select(sel){
+  state.selected=sel;
+  if(sel.type==='measure'||sel.type==='column'){
+    // start a fresh drill trail rooted at this item
+    state.trail=[{type:sel.type,ref:sel.ref}];
+    state.trailPos=0;
+    state.linRoot={type:sel.type,ref:sel.ref};   // lineage diagram roots here until a new sidebar pick
+    renderLineage();renderDetail();highlightSidebar(sel.ref.name);
+    showView('detail');
+  } else {
+    state.trail=[];state.trailPos=-1;
+    document.querySelectorAll('.node.active').forEach(n=>n.classList.remove('active'));
+    renderDetail();
+    if(sel.type==='table'){ $('#focusSel').value=sel.ref.name; renderModel(); }
+  }
+}
+// Drill into a dependency: push onto the trail (browser-style history).
+function focusItem(item){
+  // truncate forward history, then push
+  state.trail=state.trail.slice(0,state.trailPos+1);
+  state.trail.push(item);state.trailPos=state.trail.length-1;
+  syncFocus();
+}
+function setTrailPos(i){ if(i<0||i>=state.trail.length)return; state.trailPos=i; syncFocus(); }
+function syncFocus(){
+  const cur=state.trail[state.trailPos];
+  state.selected={type:cur.type,ref:cur.ref};
+  highlightSidebar(cur.ref.name);
+  renderDetail();
+  if($('#view-lineage').classList.contains('active'))renderLineage();
+}
+function highlightSidebar(name){
+  document.querySelectorAll('.node.active').forEach(n=>n.classList.remove('active'));
+  document.querySelectorAll('#tree .node').forEach(n=>{if(n._label===name)n.classList.add('active');});
+}
+$('#search').oninput=()=>{if(state.model)buildTreeUI();if(state.fg&&state.fg.api&&state.fg.api.match)state.fg.api.match($('#search').value);};
+
+/* ============================================================ LINEAGE RESOLUTION ============================================================ */
+function normName(s){return String(s||'').trim().toLowerCase();}
+function getTable(name){ // case-insensitive table lookup (DAX semantics)
+  const m=state.model.tables;
+  if(m[name])return m[name];
+  return (state.tableByNorm&&state.tableByNorm.get(normName(name)))||null;
+}
+function resolveName(name){ // [X] -> measure (preferred) or column
+  if(state.measureIndex.has(name))return{type:'measure',node:state.measureIndex.get(name)[0]};
+  if(state.columnIndex.has(name))return{type:'column',node:state.columnIndex.get(name)[0]};
+  // DAX is case-insensitive — fall back to a normalised scan
+  const nn=normName(name);
+  for(const [k,v] of state.measureIndex)if(normName(k)===nn)return{type:'measure',node:v[0]};
+  for(const [k,v] of state.columnIndex)if(normName(k)===nn)return{type:'column',node:v[0]};
+  return null;
+}
+function findMeasure(table,name){const t=getTable(table);return t?.measures.find(m=>normName(m.name)===normName(name))||null;}
+function findColumn(table,col){
+  const t=getTable(table);
+  if(t){const c=t.columns.find(c=>normName(c.name)===normName(col));if(c)return c;}
+  if(state.columnIndex.has(col))return state.columnIndex.get(col).find(c=>normName(c.table)===normName(table))||null;
+  return null;
+}
+// Build a lineage graph for a measure/column.
+function buildLineage(root){
+  const nodes=new Map(),edges=[];
+  const id=o=>o.type+'::'+(o.type==='column'?o.ref.table+'|'+o.ref.name:(o.ref.name||o.ref));
+  function addNode(o){const k=id(o);if(!nodes.has(k))nodes.set(k,{key:k,...o});return k;}
+  function addNodeKeyed(k,o){if(!nodes.has(k))nodes.set(k,{key:k,...o});return k;}
+  function addEdge(a,b,lbl,style){edges.push({a,b,lbl,style});}
+  const visited=new Set();
+
+  function walkMeasure(meas){
+    const mk=addNode({type:'measure',ref:meas});
+    if(visited.has(mk))return mk;visited.add(mk);
+    const dax=analyzeDax(meas.expression,state.knownTables);
+    const localSet=new Set(dax.locals||[]);
+    // dependent named refs
+    for(const nm of new Set(dax.names)){
+      if(nm===meas.name)continue;
+      if(localSet.has(nm))continue;          // SUMMARIZE/ADDCOLUMNS extension column — not a model object
+      const r=resolveName(nm);if(!r)continue;
+      if(r.type==='measure'){const ck=walkMeasure(r.node);addEdge(ck,mk,'feeds','dep');}
+      else {const ck=walkColumn(r.node);addEdge(ck,mk,'uses','use');}
+    }
+    // explicit table[col]
+    for(const c of dedup(dax.columns)){
+      const qm=findMeasure(c.table,c.column);if(qm){addEdge(walkMeasure(qm),mk,'feeds','dep');continue;}
+      const col=findColumn(c.table,c.column);
+      if(col){const ck=walkColumn(col);addEdge(ck,mk,'uses','use');}
+      else{const tk=walkTable(c.table);if(tk)addEdge(tk,mk,`uses [${esc(c.column)}]`,'use');}
+    }
+    for(const tn of dax.tables){if(dax.columns.some(c=>normName(c.table)===normName(tn)))continue;const tk=walkTable(tn);if(tk)addEdge(tk,mk,'uses table','use');}
+    return mk;
+  }
+  function walkColumn(col){
+    const ck=addNode({type:'column',ref:col});
+    if(visited.has(ck))return ck;visited.add(ck);
+    if(col.isCalculated&&col.expression){
+      const dax=analyzeDax(col.expression,state.knownTables);
+      const localSet=new Set(dax.locals||[]);
+      for(const c of dedup(dax.columns)){const qm=findMeasure(c.table,c.column);if(qm)addEdge(walkMeasure(qm),ck,'calc','use');const sc=findColumn(c.table,c.column);if(sc&&sc!==col){const k=walkColumn(sc);addEdge(k,ck,'calc','use');}}
+      for(const nm of new Set(dax.names)){if(localSet.has(nm))continue;const r=resolveName(nm);if(r&&r.node!==col){const k=r.type==='measure'?walkMeasure(r.node):walkColumn(r.node);addEdge(k,ck,'calc','use');}}
+    }
+    const tk=walkTable(col.table);if(tk)addEdge(tk,ck,'column of','own');
+    return ck;
+  }
+  function walkTable(tname){
+    const t=getTable(tname);if(!t)return null;
+    const tk=addNode({type:'table',ref:t});
+    if(visited.has(tk))return tk;visited.add(tk);
+    for(const p of t.partitions){
+      // partition names are often identical across tables ("p", or the table name),
+      // so the node key must include the owning table to stay unique.
+      const pk=addNodeKeyed('partition::'+t.name+'|'+(p.name||''),{type:'partition',ref:p});
+      addEdge(pk,tk,p.type||'load','load');
+      walkSource(p.source,pk,p);
+    }
+    return tk;
+  }
+  function walkSource(src,pk,p){
+    if(p&&p.type==='entity'){const ek=addNode({type:'source',ref:{name:(p.schemaName?p.schemaName+'.':'')+(p.entityName||'(DirectLake entity)'),kind:'DirectLake'}});addEdge(ek,pk,'entity','src');return;}
+    if(p&&p.type==='calculated'){const ek=addNode({type:'source',ref:{name:'DAX calculated table',kind:'calculated'}});addEdge(ek,pk,'DAX','src');return;}
+    const a=analyzeM(src);
+    // referenced shared expressions / other queries.
+    // NOTE: #"..." also matches internal let-step names (e.g. #"Filtered Rows"); only follow
+    // refs that actually resolve to a known shared expression or table — ignore local steps.
+    for(const ref of a.refs){
+      const sx=state.model.expressions.find(e=>normName(e.name)===normName(ref));
+      const ot=getTable(ref);
+      if(sx){const ek=addNode({type:'expression',ref:sx});addEdge(ek,pk,'query ref','ref');if(!visited.has(ek)){visited.add(ek);walkSource(sx.expression,ek,null);}}
+      else if(ot){const tk=walkTable(ot.name);if(tk)addEdge(tk,pk,'table ref','ref');}
+      // else: internal Power Query step name — not a model object, skip it
+    }
+    // one node per distinct source (a partition may pull from several)
+    const srcList=(a.sources&&a.sources.length)?a.sources:(a.kind?[{kind:a.kind,details:a.details}]:[]);
+    const emitted=new Set();
+    for(const s of srcList){
+      const d=s.details||{};
+      const sub=[d.server&&'srv: '+d.server,d.database&&'db: '+d.database,(d.schema&&d.item)&&d.schema+'.'+d.item,d.url&&d.url].filter(Boolean);
+      // unique key per source identity so two servers don't merge
+      const skey=s.kind+'|'+(d.server||'')+'|'+(d.database||'')+'|'+(d.schema||'')+'|'+(d.item||'')+'|'+(d.url||'');
+      if(emitted.has(skey))continue;emitted.add(skey);
+      const ek=addNodeKeyed('source::'+skey,{type:'source',ref:{name:s.kind,kind:s.kind,details:sub,nativeQuery:(s.kind==='Value.NativeQuery'?a.nativeQuery:null),dbName:d.database,server:d.server,schema:d.schema,item:d.item}});
+      addEdge(ek,pk,'from','src');
+    }
+  }
+  if(root.type==='measure')walkMeasure(root.ref);else walkColumn(root.ref);
+  return{nodes:[...nodes.values()],edges,rootKey:(root.type+'::'+(root.type==='column'?root.ref.table+'|'+root.ref.name:root.ref.name))};
+}
+function dedup(cols){const s=new Set(),o=[];for(const c of cols){const k=c.table+'|'+c.column;if(!s.has(k)){s.add(k);o.push(c);}}return o;}
+
+/* ============================================================ MARKDOWN LINEAGE DOC ============================================================ */
+// Walk the lineage graph from a root measure/column and emit a flat, reference-style Markdown spec:
+// root + DAX, then every upstream measure once (DAX + direct deps), then the columns/tables/sources
+// the closure bottoms out in. Exhaustive to source, deduped, cycle-safe (buildLineage handles that).
+function lineageMarkdown(root){
+  const g=buildLineage(root);
+  const byKey=new Map(g.nodes.map(n=>[n.key,n]));
+  // edges go upstream(a) -> downstream(b); for a given node, its direct deps are the a's of edges where b===node
+  const depsOf=new Map();
+  for(const n of g.nodes)depsOf.set(n.key,[]);
+  for(const e of g.edges){if(depsOf.has(e.b))depsOf.get(e.b).push({key:e.a,lbl:e.lbl});}
+  const rootNode=byKey.get(g.rootKey);
+
+  const measures=g.nodes.filter(n=>n.type==='measure');
+  const columns=g.nodes.filter(n=>n.type==='column');
+  const tables=g.nodes.filter(n=>n.type==='table');
+  const sources=g.nodes.filter(n=>n.type==='source');
+  const exprs=g.nodes.filter(n=>n.type==='expression');
+
+  const nm=n=>n.type==='measure'?n.ref.name
+    :n.type==='column'?`${n.ref.table}[${n.ref.name}]`
+    :n.type==='table'?n.ref.name
+    :n.type==='source'?(n.ref.name||'source')
+    :n.type==='partition'?(n.ref.name||'partition')
+    :n.type==='expression'?n.ref.name:n.key;
+  const icon=t=>({measure:'ƒ',column:'▦',table:'▦',source:'⛃',partition:'⛁',expression:'◇'}[t]||'•');
+  const depLabel=n=>`${icon(n.type)} ${nm(n)}`;
+
+  const L=[];
+  const rootName=nm(rootNode);
+  L.push(`# ${icon(rootNode.type)} ${rootName}`);
+  L.push('');
+  // context: breadcrumb trail (how you got here), if any
+  const trail=state.trail&&state.trailPos>=0?state.trail.slice(0,state.trailPos+1):[];
+  if(trail.length>1){
+    const path=trail.map(it=>it.type==='measure'?it.ref.name:`${it.ref.table}[${it.ref.name}]`).join(' → ');
+    L.push(`*Path:* ${path}`);L.push('');
+  }
+  if(rootNode.type==='measure'){
+    const m=rootNode.ref;
+    L.push(`- **Type:** measure`);
+    L.push(`- **Home table:** \`${m.table}\``);
+    if(m.displayFolder)L.push(`- **Display folder:** ${m.displayFolder}`);
+    if(m.formatString)L.push(`- **Format:** \`${m.formatString}\``);
+    if(m.description)L.push(`- **Description:** ${m.description}`);
+  } else if(rootNode.type==='column'){
+    const c=rootNode.ref;
+    L.push(`- **Type:** ${c.isCalculated?'calculated column':'column'}`);
+    L.push(`- **Table:** \`${c.table}\``);
+    L.push(`- **Data type:** ${c.dataType||'?'}`);
+  }
+  L.push('');
+  // root DAX
+  if(rootNode.ref.expression){
+    L.push('### DAX');L.push('```dax');L.push(formatDax(rootNode.ref.expression).trim());L.push('```');L.push('');
+  }
+  // direct dependencies of the root
+  const rootDeps=depsOf.get(rootNode.key)||[];
+  if(rootDeps.length){
+    L.push('### Direct dependencies');
+    for(const d of rootDeps){const dn=byKey.get(d.key);if(dn)L.push(`- ${depLabel(dn)}`);}
+    L.push('');
+  }
+
+  // upstream measures (excluding root), each once
+  const upMeasures=measures.filter(n=>n.key!==rootNode.key);
+  if(upMeasures.length){
+    L.push('---');L.push('');L.push(`## Upstream measures (${upMeasures.length})`);L.push('');
+    upMeasures.sort((a,b)=>a.ref.name.localeCompare(b.ref.name));
+    for(const mn of upMeasures){
+      const m=mn.ref;
+      L.push(`### ƒ ${m.name}`);
+      L.push(`*table* \`${m.table}\`${m.formatString?` · *fmt* \`${m.formatString}\``:''}`);
+      if(m.description)L.push(`> ${m.description}`);
+      L.push('');
+      if(m.expression){L.push('```dax');L.push(formatDax(m.expression).trim());L.push('```');}
+      const deps=(depsOf.get(mn.key)||[]).map(d=>byKey.get(d.key)).filter(Boolean);
+      if(deps.length){L.push('');L.push('*Depends on:* '+deps.map(d=>`${icon(d.type)} ${nm(d)}`).join(', '));}
+      L.push('');
+    }
+  }
+
+  // calculated columns in the closure (have their own DAX)
+  const calcCols=columns.filter(n=>n.ref.isCalculated&&n.ref.expression);
+  if(calcCols.length){
+    L.push('---');L.push('');L.push(`## Calculated columns (${calcCols.length})`);L.push('');
+    for(const cn of calcCols){
+      L.push(`### ∑ ${cn.ref.table}[${cn.ref.name}]`);L.push('');
+      L.push('```dax');L.push(formatDax(cn.ref.expression).trim());L.push('```');L.push('');
+    }
+  }
+
+  // tables, with the columns used and their source
+  if(tables.length){
+    L.push('---');L.push('');L.push(`## Tables & columns (${tables.length})`);L.push('');
+    tables.sort((a,b)=>a.ref.name.localeCompare(b.ref.name));
+    for(const tn of tables){
+      const t=tn.ref;
+      const usedCols=columns.filter(c=>normName(c.ref.table)===normName(t.name)).map(c=>c.ref.name);
+      L.push(`### ▦ ${t.name}`);
+      L.push(`*${t.isCalculated?'calculated table':'table'}*`);
+      if(usedCols.length)L.push(`- **Columns used here:** ${usedCols.map(c=>`\`${c}\``).join(', ')}`);
+      // partitions/sources for this table
+      for(const p of (t.partitions||[])){
+        const a=analyzeM(p.source);
+        const srcs=(a.sources&&a.sources.length)?a.sources:(a.kind?[{kind:a.kind,details:a.details}]:[]);
+        const parts=srcs.map(s=>{const d=s.details||{};return [s.kind,d.server&&`srv ${d.server}`,d.database&&`db ${d.database}`,(d.schema&&d.item)&&`${d.schema}.${d.item}`,d.url].filter(Boolean).join(' · ');});
+        if(parts.length)L.push(`- **Source** (${esc(p.name||'partition')}): ${parts.join('  |  ')}`);
+        else if(p.type==='entity')L.push(`- **Source** (${esc(p.name||'partition')}): DirectLake entity ${(p.schemaName?p.schemaName+'.':'')+(p.entityName||'')}`);
+        else if(p.type==='calculated')L.push(`- **Source** (${esc(p.name||'partition')}): DAX calculated table`);
+      }
+      L.push('');
+    }
+  }
+
+  // distinct data sources summary
+  if(sources.length){
+    const uniq=new Map();
+    for(const s of sources){const key=(s.ref.details||[]).join(' · ')||s.ref.name;if(!uniq.has(key))uniq.set(key,s.ref);}
+    L.push('---');L.push('');L.push(`## Data sources (${uniq.size})`);L.push('');
+    for(const [key,ref] of uniq){
+      L.push(`- **${ref.kind||'source'}**${key&&key!==ref.name?` — ${key}`:''}`);
+      if(ref.nativeQuery){L.push('');L.push('  ```sql');ref.nativeQuery.split('\n').forEach(ln=>L.push('  '+ln));L.push('  ```');}
+    }
+    L.push('');
+  }
+  if(exprs.length){
+    L.push(`## Shared expressions (${exprs.length})`);L.push('');
+    exprs.forEach(e=>L.push(`- ◇ ${e.ref.name}`));L.push('');
+  }
+
+  L.push('---');
+  L.push(`*Generated by Power BI Model Visualizer · ${measures.length} measure(s), ${columns.length} column(s), ${tables.length} table(s), ${sources.length} source ref(s) in the dependency closure.*`);
+  return L.join('\n');
+}
+
+// Whole-model variant: every measure's closure as one reference document. Can be large.
+function modelMarkdown(){
+  const L=['# Model lineage — all measures','',`*${state.model.measures.length} measures across ${Object.keys(state.model.tables).length} tables.*`,'',];
+  const sorted=state.model.measures.slice().sort((a,b)=>(a.table+a.name).localeCompare(b.table+b.name));
+  for(const m of sorted){
+    L.push('\n\n---\n');
+    L.push(lineageMarkdown({type:'measure',ref:m}));
+  }
+  return L.join('\n');
+}
+
+/* ============================================================ MERMAID GENERATION ============================================================ */
+let _idc=0;const _idmap=new Map();
+function mid(key){if(!_idmap.has(key))_idmap.set(key,'n'+(_idc++));return _idmap.get(key);}
+function mlabel(s){return '"'+String(s).replace(/"/g,'#quot;').replace(/\n/g,' ')+'"';}
+
+function mmdIsLight(){return document.documentElement.getAttribute('data-theme')==='light';}
+function mmdInactiveStroke(){return mmdIsLight()?'#8fb3bd':'#3a6470';}
+function mmdClassDefs(){
+  const P = mmdIsLight() ? {
+    measure:['#e9f6e4','#3f8a34','#2c5c24'], column:['#eef0f3','#8a929c','#2a3742'],
+    calc:['#f3ecfb','#7b4fb0','#4a2f70'],    table:['#fdf4dd','#b07d16','#6a4e0e'],
+    partition:['#e4f4f7','#1f8a99','#14545f'], source:['#e4f4f7','#1f8a99','#14545f'],
+    expr:['#e4f4f7','#1f8a99','#14545f'],     root:['#f6e6b8','#c8912a','#5a4410']
+  } : {
+    measure:['#1d2a18','#7bbf6a','#cfe9c4'], column:['#1a1d22','#6b7480','#cdd4dc'],
+    calc:['#241c30','#b48ce0','#e2d2f3'],    table:['#2a2210','#d9a441','#f0dca6'],
+    partition:['#16222a','#54c7d6','#bdeef4'], source:['#102028','#54c7d6','#bdeef4'],
+    expr:['#102028','#54c7d6','#bdeef4'],     root:['#3a3112','#e9b659','#ffffff']
+  };
+  const cd=k=>`classDef ${k} fill:${P[k][0]},stroke:${P[k][1]},color:${P[k][2]};`;
+  const out={};Object.keys(P).forEach(k=>out[k]=cd(k));
+  out.root=`classDef root fill:${P.root[0]},stroke:${P.root[1]},color:${P.root[2]},stroke-width:2px;`;
+  out.focus=`classDef focus fill:${P.root[0]},stroke:${P.root[1]},color:${P.root[2]},stroke-width:2px;`;
+  return out;
+}
+function lineageMermaid(g){
+  _idc=0;_idmap.clear();
+  const L=['graph LR'];
+  const cls=mmdClassDefs();
+  Object.values(cls).forEach(c=>L.push(c));
+  for(const n of g.nodes){
+    const id=mid(n.key);let shape,clazz,label;
+    if(n.type==='measure'){label='ƒ '+n.ref.name;shape=[`${id}(${mlabel(label)})`];clazz=n.key===g.rootKey?'root':'measure';}
+    else if(n.type==='column'){label=n.ref.table+'['+n.ref.name+']';shape=[`${id}[${mlabel(label)}]`];clazz=n.ref.isCalculated?'calc':'column';}
+    else if(n.type==='table'){label='▦ '+n.ref.name;shape=[`${id}[${mlabel(label)}]`];clazz='table';}
+    else if(n.type==='partition'){label='⛁ '+(n.ref.name||'partition');shape=[`${id}[/${mlabel(label)}/]`];clazz='partition';}
+    else if(n.type==='expression'){label='◇ '+n.ref.name;shape=[`${id}{{${mlabel(label)}}}`];clazz='expr';}
+    else {const d=(n.ref.details&&n.ref.details.length)?' · '+n.ref.details.join(' · '):'';label=n.ref.name+d;shape=[`${id}[(${mlabel(label)})]`];clazz='source';}
+    L.push(shape[0]);L.push(`class ${id} ${clazz}`);
+  }
+  for(const e of g.edges){
+    const ar=e.style==='dep'?'==>':'-->';
+    L.push(`${mid(e.a)} ${ar}|${mlabel(e.lbl)}| ${mid(e.b)}`);
+  }
+  return L.join('\n');
+}
+
+// Shared visibility + graph extraction used by both the Mermaid export and the force graph.
+function getModelGraph(focus,hops){
+  const m=state.model;const tables=Object.values(m.tables);
+  let visible=new Set(tables.map(t=>t.name));
+  if(focus){
+    visible=new Set([focus]);let frontier=new Set([focus]);
+    const adj=new Map();
+    for(const r of m.relationships){if(!r.isActive&&!$('#inactiveRel').checked)continue;const a=r.fromTable,b=r.toTable;if(!a||!b)continue;(adj.get(a)||adj.set(a,[]).get(a)).push(b);(adj.get(b)||adj.set(b,[]).get(b)).push(a);}
+    for(let h=0;h<hops;h++){const nf=new Set();for(const t of frontier)for(const nb of(adj.get(t)||[]))if(!visible.has(nb)){visible.add(nb);nf.add(nb);}frontier=nf;if(!nf.size)break;}
+  }
+  const nodes=tables.filter(t=>visible.has(t.name)).map(t=>({name:t.name,calc:t.isCalculated,focus:t.name===focus,cols:t.columns.length,meas:t.measures.length}));
+  const links=[];
+  for(const r of m.relationships){
+    if(!r.isActive&&!$('#inactiveRel').checked)continue;
+    if(!visible.has(r.fromTable)||!visible.has(r.toTable)||r.fromTable===r.toTable)continue;
+    links.push({source:r.fromTable,target:r.toTable,fromCardinality:r.fromCardinality,toCardinality:r.toCardinality,active:r.isActive,both:r.crossFilteringBehavior==='bothDirections',col:r.fromCol,fromCol:r.fromCol,toCol:r.toCol});
+  }
+  return{nodes,links};
+}
+
+function modelMermaid(focus,hops){
+  _idc=0;_idmap.clear();
+  const {nodes,links}=getModelGraph(focus,hops);
+  const L=['graph LR'];
+  {const cd=mmdClassDefs();L.push(cd.table);L.push(cd.calc);L.push(cd.focus);}
+  for(const t of nodes){const id=mid(t.name);L.push(`${id}[${mlabel(t.name)}]`);L.push(`class ${id} ${t.focus?'focus':(t.calc?'calc':'table')}`);}
+  let li=0;
+  for(const r of links){
+    const lbl=(r.fromCardinality==='one'?'1':'*')+' : '+(r.toCardinality==='one'?'1':'*')+(r.col?' · '+r.col:'');
+    const arrow=r.active?'---':'-.-';
+    L.push(`${mid(r.source)} ${arrow}|${mlabel(lbl)}| ${mid(r.target)}`);
+    if(!r.active)L.push(`linkStyle ${li} stroke:${mmdInactiveStroke()},stroke-dasharray:4 3;`);
+    li++;
+  }
+  return L.join('\n');
+}
+
+/* ============================================================ RENDER ============================================================ */
+
+/* Overview is an index of starting points; diagrams are always deliberately scoped. */
+function renderOverview(){
+  if(state.fg){cancelAnimationFrame(state.fg.raf);state.fg=null;}state.lastModelMmd='';
+  const host=$('#modelDiagram');host.style.transform='';host.style.overflow='auto';
+  const tables=Object.values(state.model.tables),rels=state.model.relationships;
+  const connected=new Set(rels.flatMap(r=>[r.fromTable,r.toTable]));
+  const hidden=tables.filter(t=>t.isHidden).length;
+  host.innerHTML=`<div class="explorer"><div class="explorer-note">MODEL OVERVIEW</div><h2>Where do you want to explore?</h2><p>Choose a table to see its immediate relationships. Increase related levels only when you need more context. Use the sidebar to inspect a measure or column.</p><div class="overview-metrics"><span><b>${tables.length}</b> tables</span><span><b>${state.model.measures.length}</b> measures</span><span><b>${rels.length}</b> relationships</span><span><b>${state.report?.pages.length||0}</b> report pages</span></div><div class="explorer-note">${hidden} hidden tables · ${tables.filter(t=>!connected.has(t.name)).length} disconnected tables. Disconnected tables can be intentional, including measure tables and parameters.</div><div class="explorer-controls"><input id="overviewSearch" aria-label="Search table starting points" placeholder="Find a table or a measure it contains…"><select id="overviewKind" aria-label="Table category"><option value="visible">Visible tables</option><option value="measures">With measures</option><option value="connected">Connected tables</option><option value="disconnected">Disconnected tables</option><option value="hidden">Hidden tables</option><option value="all">All table names</option></select></div><p id="overviewCount" class="explorer-note"></p><div class="table-grid" id="tableGrid"></div><p class="explorer-note">Reads TMDL models and PBIR report definitions locally. This is metadata exploration, not a rendering of live report data. Role colours on focused maps are inferred.</p></div>`;
+  function draw(){const q=normName($('#overviewSearch').value),kind=$('#overviewKind').value;
+    const rows=tables.filter(t=>(kind!=='visible'||!t.isHidden)&&(kind!=='hidden'||t.isHidden)&&(kind!=='measures'||t.measures.length)&&(kind!=='connected'||connected.has(t.name))&&(kind!=='disconnected'||!connected.has(t.name))&&(!q||normName(t.name).includes(q)||t.measures.some(m=>normName(m.name).includes(q)))).sort((a,b)=>a.name.localeCompare(b.name));
+    $('#overviewCount').textContent=rows.length+' matching tables · select one to open a focused map';
+    const grid=$('#tableGrid');grid.innerHTML='';for(const t of rows){const count=rels.filter(r=>r.fromTable===t.name||r.toTable===t.name).length;
+      const card=el('button','table-card',`<small>${t.isCalculated?'CALCULATED':t.isHidden?'HIDDEN':!count?'DISCONNECTED':'TABLE'}</small><strong>${esc(t.name)}</strong><small>${t.columns.length} columns · ${t.measures.length} measures<br>${count} relationships</small>`);
+      card.onclick=()=>{$('#focusSel').value=t.name;$('#hopSel').value='1';state.fgPos=null;renderModel();};grid.appendChild(card);}
+    if(!rows.length)grid.textContent='No tables match. Try another category or search.';
+  }
+  $('#overviewSearch').oninput=draw;$('#overviewKind').onchange=draw;draw();
+}
+function downstreamImpact(sel){
+  const key=(type,ref)=>type+'|'+normName(ref.table)+'|'+normName(ref.name);
+  const target=key(sel.type,sel.ref), affected=new Set([target]);
+  const objects=[...state.model.measures.map(ref=>({type:'measure',ref})),...state.model.columns.filter(c=>c.isCalculated).map(ref=>({type:'column',ref}))];
+  const deps=o=>{const d=analyzeDax(o.ref.expression,state.knownTables),out=[];for(const n of d.names){if(d.locals.includes(n))continue;const r=resolveName(n);if(r)out.push(key(r.type,r.node));}for(const c of d.columns){const m=findMeasure(c.table,c.column),col=findColumn(c.table,c.column);if(m)out.push(key('measure',m));else if(col)out.push(key('column',col));}return out;};
+  const edges=objects.map(o=>({o,deps:deps(o)}));let changed=true;while(changed){changed=false;for(const {o,deps:d} of edges){const k=key(o.type,o.ref);if(!affected.has(k)&&d.some(x=>affected.has(x))){affected.add(k);changed=true;}}}
+  const dependents=objects.filter(o=>key(o.type,o.ref)!==target&&affected.has(key(o.type,o.ref)));
+  const visuals=[];for(const page of state.report?.pages||[])for(const v of page.visuals)if(v.fields.some(f=>affected.has(key(f.kind,{table:f.table,name:f.name}))))visuals.push({page,v});
+  return {dependents,visuals};
+}
+function renderImpact(sel,body){const impact=downstreamImpact(sel);const box=el('div','impact-list');box.innerHTML=`<h3>Change impact</h3><div class="mini">${impact.dependents.length} downstream measures / calculated columns · ${impact.visuals.length} bound visuals in the loaded report. Static references only; dynamic dependencies may be missing.</div>`;
+  for(const o of impact.dependents){const b=el('button','btn',esc(o.ref.name));b.onclick=()=>focusItem(o);box.appendChild(b);}
+  for(const {page,v} of impact.visuals){const b=el('button','btn',esc(page.name+' · '+(v.title||RPT_TYPE_LABEL[v.type]||v.type)));b.onclick=()=>{$('#reportPageSel').value=state.report.pages.indexOf(page);showView('report');};box.appendChild(b);}body.appendChild(box);
+}
+
+function renderModel(){
+  if(!state.model)return;
+  const focus=$('#focusSel').value||null;const hops=parseInt($('#hopSel').value,10);
+  const overview=!focus;$('#overviewBtn').style.display=overview?'none':'';$('#inactiveRel').parentElement.style.display=overview?'none':'';$('#hopSel').disabled=overview;$('#arrangeBtn').disabled=overview;$('#copyModelMmd').disabled=overview;$('#mapMode').style.display=overview?'none':'';document.querySelector('#view-model .zoom').style.display=overview?'none':'';document.querySelector('#view-model .legend').style.display=overview?'none':'';
+  if(overview){renderOverview();return;}
+  $('#modelDiagram').style.overflow='hidden';
+  const graph=getModelGraph(focus,hops);
+  state.lastModelMmd=modelMermaid(focus,hops);   // kept for the Copy Mermaid button
+  renderForceGraph('modelDiagram',graph);
+}
+function renderLineage(){
+  const sel=state.linRoot||state.selected;if(!sel||(sel.type!=='measure'&&sel.type!=='column')){return;}
+  const g=buildLineage(sel);const code=lineageMermaid(g);state.lastLinMmd=code;
+  state.linGraph=g;
+  state.linKeyToMid=new Map(_idmap);
+  state.linMidToKey={};_idmap.forEach((v,k)=>state.linMidToKey[v]=k);
+  const label=sel.type==='measure'?('ƒ '+sel.ref.name):(sel.ref.table+'['+sel.ref.name+']');
+  $('#lineageTitle').textContent='Lineage · '+label+'  ('+g.nodes.length+' nodes)';
+  // if the Detail pane is currently on a different item, offer to re-root here
+  updateRerootBtn(sel);
+  renderMermaid('lineageDiagram',code,'lineage');
+}
+function sameRef(a,b){return a&&b&&a.type===b.type&&a.ref===b.ref;}
+function updateRerootBtn(linSel){
+  const btn=$('#rerootBtn');if(!btn)return;
+  const s=state.selected;
+  if(s&&(s.type==='measure'||s.type==='column')&&!sameRef(s,linSel)){
+    const lbl=s.type==='measure'?s.ref.name:(s.ref.table+'['+s.ref.name+']');
+    btn.style.display='';btn.textContent='⟲ Re-root on '+lbl;
+    btn.title='The diagram is rooted elsewhere — click to rebuild it around what you last opened in Detail';
+  } else btn.style.display='none';
+}
+function renderMermaid(elId,code,kind){
+  const host=$('#'+elId);
+  if(!state.mermaidOK||!window.mermaid){
+    host.innerHTML=`<div style="width:100%"><div class="mini" style="margin-bottom:8px">Mermaid not rendering inline — copy the source below into <code>mermaid.live</code>:</div><pre class="code">${esc(code)}</pre></div>`;
+    return;
+  }
+  const gid='mmd-'+kind+'-'+Date.now();
+  try{
+    window.mermaid.render(gid,code).then(({svg})=>{host.innerHTML=svg;postRender(elId,kind);}).catch(err=>{
+      host.innerHTML=`<div style="width:100%"><div class="err">Diagram render error: ${esc(String(err.message||err))}</div><pre class="code">${esc(code)}</pre></div>`;
+    });
+  }catch(err){host.innerHTML=`<pre class="code">${esc(code)}</pre>`;}
+}
+
+/* ============================================================ INTERACTION: pan/zoom, highlight, lineage drill ============================================================ */
+function postRender(hostId,kind){
+  const host=$('#'+hostId);const svg=host.querySelector('svg');if(!svg)return;
+  // capture natural size from viewBox
+  let baseW=0,baseH=0;const vb=(svg.getAttribute('viewBox')||'').split(/\s+/).map(Number);
+  if(vb.length===4){baseW=vb[2];baseH=vb[3];}
+  if(!baseW){const r=svg.getBoundingClientRect();baseW=r.width||800;baseH=r.height||500;}
+  svg.removeAttribute('width');svg.removeAttribute('height');
+  svg.style.maxWidth='none';svg.style.display='block';svg.style.margin='0 auto';
+  state.pz[hostId]={scale:1,baseW,baseH,svg};
+  applyZoom(hostId);
+  attachPan(hostId);
+  if(kind==='lineage'){
+    state.isolate=false;$('#isolateToggle')&&$('#isolateToggle').classList.remove('on');
+    svg.querySelectorAll('.node').forEach(n=>{
+      const id=n.getAttribute('data-id');if(!id)return;
+      let t=null;
+      n.addEventListener('click',e=>{e.stopPropagation();clearTimeout(t);t=setTimeout(()=>highlightUpstream(id),210);});
+      n.addEventListener('dblclick',e=>{e.stopPropagation();clearTimeout(t);drillFromLineage(id);});
+    });
+  }
+}
+function applyZoom(hostId){
+  const z=state.pz[hostId];if(!z||!z.svg)return;
+  z.svg.style.width=(z.baseW*z.scale)+'px';
+  z.svg.style.height=(z.baseH*z.scale)+'px';
+  const lvl=document.querySelector(`.zoom[data-host="${hostId}"] .zlvl`);
+  if(lvl)lvl.textContent=Math.round(z.scale*100)+'%';
+}
+function zoomBy(hostId,f){const z=state.pz[hostId];if(!z)return;z.scale=clamp(z.scale*f,0.1,6);applyZoom(hostId);}
+function zoomReset(hostId){const z=state.pz[hostId];if(!z)return;z.scale=1;applyZoom(hostId);const s=$('#'+hostId).closest('.scroll');if(s){s.scrollLeft=0;s.scrollTop=0;}}
+function zoomFit(hostId){const z=state.pz[hostId];if(!z)return;const s=$('#'+hostId).closest('.scroll');if(!s)return;z.scale=clamp((s.clientWidth-40)/z.baseW,0.1,6);applyZoom(hostId);s.scrollLeft=0;s.scrollTop=0;}
+function attachPan(hostId){
+  const host=$('#'+hostId);const scroll=host.closest('.scroll');if(!scroll||scroll._pan)return;scroll._pan=true;
+  let dragging=false,sx,sy,sl,st_;
+  scroll.addEventListener('mousedown',e=>{
+    if(e.target.closest('.node'))return;
+    dragging=true;sx=e.clientX;sy=e.clientY;sl=scroll.scrollLeft;st_=scroll.scrollTop;scroll.style.cursor='grabbing';e.preventDefault();
+  });
+  window.addEventListener('mousemove',e=>{if(!dragging)return;scroll.scrollLeft=sl-(e.clientX-sx);scroll.scrollTop=st_-(e.clientY-sy);});
+  window.addEventListener('mouseup',()=>{if(dragging){dragging=false;scroll.style.cursor='';}});
+  scroll.addEventListener('wheel',e=>{
+    const hid=host.id;if(!state.pz[hid])return;
+    e.preventDefault();
+    const z=state.pz[hid];const prev=z.scale;
+    const ns=clamp(prev*(e.deltaY<0?1.12:1/1.12),0.1,6);
+    if(ns===prev)return;
+    // keep the point under the cursor fixed while scaling
+    const r=scroll.getBoundingClientRect();
+    const cx=e.clientX-r.left+scroll.scrollLeft;
+    const cy=e.clientY-r.top+scroll.scrollTop;
+    z.scale=ns;applyZoom(hid);
+    const ratio=ns/prev;
+    scroll.scrollLeft=cx*ratio-(e.clientX-r.left);
+    scroll.scrollTop=cy*ratio-(e.clientY-r.top);
+  },{passive:false});
+  scroll.addEventListener('click',e=>{if(host.id==='lineageDiagram'&&!e.target.closest('.node'))clearHighlight('lineageDiagram');});
+}
+/* upstream highlight */
+function highlightUpstream(clickedMid){
+  const g=state.linGraph;if(!g)return;
+  const key=state.linMidToKey[clickedMid];if(!key)return;
+  const incoming=new Map();
+  g.edges.forEach(e=>{if(!incoming.has(e.b))incoming.set(e.b,[]);incoming.get(e.b).push(e.a);});
+  const nodes=new Set([key]),stack=[key];
+  while(stack.length){const n=stack.pop();(incoming.get(n)||[]).forEach(a=>{if(!nodes.has(a)){nodes.add(a);stack.push(a);}});}
+  const edgePairs=new Set();
+  g.edges.forEach(e=>{if(nodes.has(e.a)&&nodes.has(e.b))edgePairs.add(e.a+'>'+e.b);});
+  applyHighlight('lineageDiagram',nodes,edgePairs,key);
+}
+function applyHighlight(hostId,keySet,edgePairs,rootKey){
+  const svg=$('#'+hostId).querySelector('svg');if(!svg)return;
+  const iso=state.isolate;
+  const mids=new Set([...keySet].map(k=>state.linKeyToMid.get(k)));
+  const rootMid=state.linKeyToMid.get(rootKey);
+  svg.querySelectorAll('.node').forEach(n=>{
+    const id=n.getAttribute('data-id');
+    n.classList.remove('lin-hl','lin-hl-root','lin-dim','lin-hidden');
+    if(mids.has(id)){n.classList.add('lin-hl');if(id===rootMid)n.classList.add('lin-hl-root');}
+    else n.classList.add(iso?'lin-hidden':'lin-dim');
+  });
+  svg.querySelectorAll('path.flowchart-link,.flowchart-link').forEach(p=>{
+    const cls=p.getAttribute('class')||'';
+    const ms=cls.match(/LS-([A-Za-z0-9_]+)/),me=cls.match(/LE-([A-Za-z0-9_]+)/);
+    p.classList.remove('lin-edge-hl','lin-dim','lin-hidden');
+    let on=false;
+    if(ms&&me){const a=state.linMidToKey[ms[1]],b=state.linMidToKey[me[1]];if(a&&b&&edgePairs.has(a+'>'+b))on=true;}
+    if(on)p.classList.add('lin-edge-hl');else p.classList.add(iso?'lin-hidden':'lin-dim');
+  });
+  svg.classList.remove('lab-dim','lab-hide');
+  svg.classList.add(iso?'lab-hide':'lab-dim');
+}
+function clearHighlight(hostId){
+  const svg=$('#'+hostId).querySelector('svg');if(!svg)return;
+  svg.querySelectorAll('.lin-hl,.lin-hl-root,.lin-dim,.lin-hidden').forEach(e=>e.classList.remove('lin-hl','lin-hl-root','lin-dim','lin-hidden'));
+  svg.querySelectorAll('.lin-edge-hl').forEach(e=>e.classList.remove('lin-edge-hl'));
+  svg.classList.remove('lab-dim','lab-hide');
+}
+function drillFromLineage(mid){
+  const key=state.linMidToKey[mid];const node=(state.linGraph.nodes||[]).find(n=>n.key===key);if(!node)return;
+  // Open in Detail but DO NOT re-root the lineage diagram — so returning to Lineage
+  // still shows the full graph the user was exploring.
+  if(node.type==='measure'||node.type==='column'){
+    state.selected={type:node.type,ref:node.ref};
+    state.trail=[{type:node.type,ref:node.ref}];state.trailPos=0;
+    highlightSidebar(node.ref.name);renderDetail();showView('detail');
+  } else {
+    state.selected={type:node.type,ref:node.ref};state.trail=[];state.trailPos=-1;
+    renderDetail();showView('detail');
+  }
+}
+
+/* ============================================================ FORCE-DIRECTED MODEL MAP (self-contained physics) ============================================================ */
+const SVGNS='http://www.w3.org/2000/svg';
+function renderForceGraph(hostId,graph){
+  const host=$('#'+hostId);
+  if(state.fg){cancelAnimationFrame(state.fg.raf);state.fg=null;}
+  host.innerHTML='';
+  if(!graph.nodes.length){host.innerHTML='<div class="empty"><div class="big">No tables to show</div></div>';return;}
+
+  const rect=host.getBoundingClientRect();
+  const W=Math.max(rect.width||900,600),H=Math.max(rect.height||560,460);
+
+  // persistent positions so re-renders (focus/hops changes) don't reshuffle the whole map
+  state.fgPos=state.fgPos||{};state.fgDidDrag=false;
+  const nodes=graph.nodes.map((n,i)=>{
+    const p=state.fgPos[n.name];
+    return {...n,
+      x:p?p.x:W/2+Math.cos(i/graph.nodes.length*6.283)*Math.min(W,H)*0.32,
+      y:p?p.y:H/2+Math.sin(i/graph.nodes.length*6.283)*Math.min(W,H)*0.32,
+      vx:0,vy:0,fixed:false};
+  });
+  const byName={};nodes.forEach(n=>byName[n.name]=n);
+  const links=graph.links.map(l=>({...l,s:byName[l.source],t:byName[l.target]})).filter(l=>l.s&&l.t);
+
+  // ---- svg scaffold ----
+  const svg=document.createElementNS(SVGNS,'svg');svg.setAttribute('class','fg-svg');
+  const defs=document.createElementNS(SVGNS,'defs');
+  defs.innerHTML=`<marker id="fgarrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#6b7480"/></marker>`;
+  svg.appendChild(defs);
+  const root=document.createElementNS(SVGNS,'g');svg.appendChild(root);
+  const linkLayer=document.createElementNS(SVGNS,'g');root.appendChild(linkLayer);
+  const labelLayer=document.createElementNS(SVGNS,'g');root.appendChild(labelLayer);
+  const nodeLayer=document.createElementNS(SVGNS,'g');root.appendChild(nodeLayer);
+  host.appendChild(svg);
+  const hint=document.createElement('div');hint.className='fg-hint';
+  hint.textContent='click = pin table card · double-click = focus · drag node to explore · drag canvas to pan · scroll to zoom';
+  host.appendChild(hint);
+
+  // ---- link DOM (paths so we can route orthogonally in schematic mode) ----
+  const linkEls=links.map(l=>{
+    const ln=document.createElementNS(SVGNS,'path');
+    ln.setAttribute('class','fglink'+(l.active?'':' inactive')+(l.both?' both':''));
+    // Endpoints show cardinality; no misleading filter-direction arrow.
+    linkLayer.appendChild(ln);
+    const crow=document.createElementNS(SVGNS,'path');crow.setAttribute('class','fgcrow');linkLayer.appendChild(crow);
+    const lbl=document.createElementNS(SVGNS,'text');lbl.setAttribute('class','fgelabel');
+    const fc=l.fromCol||'',tc=l.toCol||'';const arrow=' '+(l.fromCardinality==='one'?'1':'*')+' : '+(l.toCardinality==='one'?'1':'*')+' ';
+    lbl.textContent=(fc&&tc)?(fc+arrow+tc):(fc||tc||'');
+    labelLayer.appendChild(lbl);
+    return {l,ln,crow,lbl};
+  });
+  // adjacency for hover
+  const incident={};nodes.forEach(n=>incident[n.name]=[]);
+  linkEls.forEach(le=>{incident[le.l.source].push(le);incident[le.l.target].push(le);});
+
+  // ---- roles + node DOM ----
+  const {role:roleMap}=inferRoles(nodes,links);
+  nodes.forEach(n=>n.role=roleMap[n.name]);
+  const ROLE_GLYPH={fact:'▦',bridge:'⧉',dim:'◇',calc:'∑',disconnected:'○'};
+  const nodeEls=nodes.map(n=>{
+    const g=document.createElementNS(SVGNS,'g');
+    g.setAttribute('class','fgnode role-'+(n.role||'dim')+(n.focus?' focus':''));
+    const r=document.createElementNS(SVGNS,'rect');r.setAttribute('rx','7');
+    const strip=document.createElementNS(SVGNS,'rect');strip.setAttribute('class','fgstrip');
+    const t=document.createElementNS(SVGNS,'text');t.textContent=(ROLE_GLYPH[n.role]||'◇')+' '+n.name;t.setAttribute('x','14');
+    g.appendChild(r);g.appendChild(strip);g.appendChild(t);
+    // small subtitle showing column/measure counts
+    const sub=document.createElementNS(SVGNS,'text');sub.setAttribute('class','fgsub');sub.setAttribute('x','14');
+    sub.textContent=(n.cols!=null?n.cols+'c':'')+(n.meas?' · '+n.meas+'m':'');
+    g.appendChild(sub);
+    nodeLayer.appendChild(g);
+    return {n,g,r,t,sub,strip};
+  });
+  nodeEls.forEach(ne=>{
+    let w=120,h=34;try{const bb=ne.t.getBBox();w=Math.max(92,bb.width+30);h=36;}catch(e){w=Math.max(92,ne.n.name.length*7+38);}
+    // fact tables loom a little larger
+    if(ne.n.role==='fact'){w+=10;h=42;}
+    ne.w=w;ne.h=h;ne.r.setAttribute('width',w);ne.r.setAttribute('height',h);
+    ne.strip.setAttribute('x','0');ne.strip.setAttribute('y','0');
+    ne.strip.setAttribute('width','4');ne.strip.setAttribute('height',h);
+    ne.t.setAttribute('y',ne.sub.textContent?h/2-5:h/2);
+    ne.sub.setAttribute('y',h/2+9);if(!ne.sub.textContent)ne.sub.style.display='none';
+    ne.n.w=w;ne.n.h=h;
+  });
+
+  // ---- view transform (pan/zoom) ----
+  let scale=1,tx=0,ty=0;
+  const apply=()=>{root.setAttribute('transform',`translate(${tx},${ty}) scale(${scale})`);try{updateCard();}catch(e){}};
+  apply();
+  const toWorld=(cx,cy)=>{const b=svg.getBoundingClientRect();return {x:(cx-b.left-tx)/scale,y:(cy-b.top-ty)/scale};};
+
+  // ---- mode + schematic targets ----
+  let mode=state.mapMode||'schematic';
+  let targets={};
+  function computeTargets(){const r=schematicLayout(nodes,links,W,H);targets=r.pos;}
+  computeTargets();
+
+  // ---- simulation (force) / easing (schematic) ----
+  const REST=190,KS=0.02,KREP=11000,GRAV=0.018,DAMP=0.86;
+  let alpha=1,running=false;
+  function kick(a){alpha=Math.max(alpha,a||0.5);if(!running){running=true;loop();}}
+
+  function separate(iter,respectFixed){
+    for(let k=0;k<iter;k++){let any=false;
+      for(let i=0;i<nodes.length;i++)for(let j=i+1;j<nodes.length;j++){
+        const a=nodes[i],b=nodes[j];const mx=(a.w+b.w)/2+22,my=(a.h+b.h)/2+18;
+        let dx=b.x-a.x,dy=b.y-a.y;if(Math.abs(dx)<0.01&&Math.abs(dy)<0.01){dx=Math.random()-0.5;dy=Math.random()-0.5;}
+        const ox=mx-Math.abs(dx),oy=my-Math.abs(dy);
+        if(ox>0&&oy>0){any=true;const aF=respectFixed&&a.fixed,bF=respectFixed&&b.fixed;
+          if(ox<oy){const p=(dx<0?-1:1)*ox;if(aF)b.x+=p;else if(bF)a.x-=p;else{a.x-=p/2;b.x+=p/2;}}
+          else{const p=(dy<0?-1:1)*oy;if(aF)b.y+=p;else if(bF)a.y-=p;else{a.y-=p/2;b.y+=p/2;}}}
+      }
+      if(!any)return;
+    }
+  }
+  function stepForce(){
+    for(let i=0;i<nodes.length;i++)for(let j=i+1;j<nodes.length;j++){
+      const a=nodes[i],b=nodes[j];let dx=a.x-b.x,dy=a.y-b.y,d2=dx*dx+dy*dy;if(d2<1)d2=1;
+      let d=Math.sqrt(d2);let f=KREP/d2;if(f>60)f=60;const fx=f*dx/d,fy=f*dy/d;
+      a.vx+=fx;a.vy+=fy;b.vx-=fx;b.vy-=fy;}
+    for(const l of links){let dx=l.t.x-l.s.x,dy=l.t.y-l.s.y,d=Math.hypot(dx,dy)||1;
+      const f=KS*(d-REST),fx=f*dx/d,fy=f*dy/d;l.s.vx+=fx;l.s.vy+=fy;l.t.vx-=fx;l.t.vy-=fy;}
+    for(const n of nodes){n.vx+=(W/2-n.x)*GRAV;n.vy+=(H/2-n.y)*GRAV;}
+    for(const n of nodes){if(n.fixed){n.vx=0;n.vy=0;continue;}
+      n.vx*=DAMP;n.vy*=DAMP;n.vx=clamp(n.vx,-60,60);n.vy=clamp(n.vy,-60,60);n.x+=n.vx*alpha;n.y+=n.vy*alpha;}
+    separate(3,true);alpha*=0.992;
+  }
+  // critically-damped easing toward schematic targets (no overshoot = "instrument", not "toy")
+  function stepSchematic(){
+    let moving=0;const k=0.16;
+    for(const n of nodes){
+      if(n.fixed)continue;const t=targets[n.name];if(!t)continue;
+      const dx=t.x-n.x,dy=t.y-n.y;n.x+=dx*k;n.y+=dy*k;
+      if(Math.abs(dx)+Math.abs(dy)>0.4)moving++;
+    }
+    separate(2,true);
+    if(moving===0)alpha=0;
+  }
+
+  // crow's-foot helper: builds an orthogonal path (rounded elbows) + a "many" foot at the source end
+  function routePath(a,b){
+    const dir=b.x>=a.x?1:-1;
+    const ax2=a.x+dir*(a.w/2),bx2=b.x-dir*(b.w/2),ay=a.y,by=b.y;
+    if(Math.abs(by-ay)<2)return `M ${ax2} ${ay} L ${bx2} ${by}`;
+    const midx=(ax2+bx2)/2;
+    const r=Math.max(2,Math.min(13,Math.abs(midx-ax2),Math.abs(by-ay)/2));
+    const sy=by>ay?1:-1;
+    return `M ${ax2} ${ay} H ${midx-dir*r} Q ${midx} ${ay} ${midx} ${ay+sy*r} V ${by-sy*r} Q ${midx} ${by} ${midx+dir*r} ${by} H ${bx2}`;
+  }
+  function footMarks(a,b,rel){
+    if(rel.fromCardinality!=='many'||rel.toCardinality!=='one')return '';
+    // crow's foot (many) at fact end a, single "1" tick at dim end b
+    const dir=b.x>=a.x?1:-1;const ex=a.x+dir*(a.w/2),ey=a.y;
+    const s=7;
+    const tx=b.x-dir*(b.w/2)-dir*9,ty=b.y;
+    return `M ${ex} ${ey} l ${dir*s} ${-s} M ${ex} ${ey} l ${dir*s} 0 M ${ex} ${ey} l ${dir*s} ${s} M ${tx} ${ty-6} l 0 12`;
+  }
+
+  function paint(){
+    for(const ne of nodeEls)ne.g.setAttribute('transform',`translate(${ne.n.x-ne.w/2},${ne.n.y-ne.h/2})`);
+    for(const le of linkEls){
+      const a=le.l.s,b=le.l.t;
+      if(mode==='schematic'){
+        le.ln.setAttribute('d',routePath(a,b));
+        if(le.crow)le.crow.setAttribute('d',footMarks(a,b,le.l));
+        const midx=(a.x+(b.x>=a.x?1:-1)*a.w/2+b.x-(b.x>=a.x?1:-1)*b.w/2)/2;
+        le.lbl.setAttribute('x',midx);le.lbl.setAttribute('y',(a.y+b.y)/2-4);
+      } else {
+        le.ln.setAttribute('d',`M ${a.x} ${a.y} L ${b.x} ${b.y}`);
+        if(le.crow)le.crow.setAttribute('d','');
+        le.lbl.setAttribute('x',(a.x+b.x)/2);le.lbl.setAttribute('y',(a.y+b.y)/2-4);
+      }
+    }
+    nodeEls.forEach(ne=>{state.fgPos[ne.n.name]={x:ne.n.x,y:ne.n.y};});
+    try{updateCard();}catch(e){}
+  }
+  function loop(){
+    const busy=nodes.some(n=>n.fixed);
+    if(mode==='schematic')stepSchematic();else stepForce();
+    paint();
+    if(alpha>0.02||busy)state.fg.raf=requestAnimationFrame(loop);
+    else{if(mode==='force')separate(20,false);paint();running=false;}
+  }
+
+  // ---- interaction ----
+  let drag=null,pan=null,moved=false,pinned=null;
+  function nodeAt(target){const g=target.closest('.fgnode');if(!g)return null;return nodeEls.find(ne=>ne.g===g);}
+
+  // ---- pinned info card ----
+  const card=document.createElement('div');card.className='fg-card';card.style.display='none';
+  host.appendChild(card);
+  function tableSrcKind(name){
+    const t=state.model.tables[name];if(!t)return '';
+    for(const p of t.partitions){const a=analyzeM(p.source);if(a&&a.kind)return a.kind;}
+    return '';
+  }
+  function showCard(ne){
+    const t=state.model.tables[ne.n.name];if(!t){card.style.display='none';return;}
+    const glyph=ROLE_GLYPH[ne.n.role]||'◇';
+    const src=tableSrcKind(ne.n.name);
+    const rels=(incident[ne.n.name]||[]).length;
+    card.innerHTML=
+      `<span class="fc-x" title="Unpin">✕</span>`+
+      `<h4>${glyph} ${esc(ne.n.name)} <span class="fc-badge ${ne.n.role}">${esc(ne.n.role)}</span></h4>`+
+      `<div class="fc-meta">${t.columns.length} columns · ${t.measures.length} measures · ${rels} relationship${rels===1?'':'s'}`+
+      (src?`<br>source: <span class="src">${esc(src)}</span>`:'')+
+      (t.file?`<br><span style="opacity:.7">${esc(t.file.split('/').pop())}</span>`:'')+`</div>`+
+      `<div class="fc-actions">`+
+        `<span class="toggle" data-act="focus" title="Re-centre the map on this table">⊙ Focus</span>`+
+        `<span class="toggle" data-act="detail" title="Open in Source & Detail">≡ Detail</span>`+
+        (t.file?`<span class="vs-link" data-act="vscode" title="Open ${esc(t.file)} in VS Code">⌁ VS Code</span>`:'')+
+      `</div>`;
+    card.style.display='block';
+    card.querySelector('.fc-x').onclick=unpin;
+    card.querySelector('[data-act="focus"]').onclick=()=>{$('#focusSel').value=ne.n.name;renderModel();};
+    card.querySelector('[data-act="detail"]').onclick=()=>{
+      state.selected={type:'table',ref:t};state.trail=[];state.trailPos=-1;
+      renderDetail();showView('detail');
+    };
+    const vs=card.querySelector('[data-act="vscode"]');
+    if(vs)vs.onclick=()=>openInVSCode(t.file,t.line);
+    updateCard();
+  }
+  function updateCard(){
+    if(card.style.display==='none'||!pinned)return;
+    const ne=nodeEls.find(x=>x.n.name===pinned);if(!ne)return;
+    const hb=host.getBoundingClientRect();
+    let x=(ne.n.x+ne.w/2)*scale+tx+14;
+    let y=(ne.n.y-ne.h/2)*scale+ty-6;
+    x=clamp(x,8,Math.max(8,hb.width-card.offsetWidth-8));
+    y=clamp(y,8,Math.max(8,hb.height-card.offsetHeight-8));
+    card.style.left=x+'px';card.style.top=y+'px';
+  }
+  function pinNode(ne){
+    pinned=ne.n.name;
+    highlightNode(pinned);
+    nodeEls.forEach(x=>x.g.classList.toggle('pinned',x.n.name===pinned));
+    showCard(ne);
+  }
+  function unpin(){
+    pinned=null;card.style.display='none';
+    nodeEls.forEach(x=>x.g.classList.remove('pinned'));
+    clearFGHighlight();
+  }
+
+  svg.addEventListener('mousedown',e=>{
+    const ne=nodeAt(e.target);moved=false;
+    if(ne){drag={ne,sx:e.clientX,sy:e.clientY};ne.n.fixed=true;ne.g.classList.add('dragging');kick(0.7);}
+    else{pan={sx:e.clientX,sy:e.clientY,tx,ty};svg.classList.add('panning');}
+    e.preventDefault();
+  });
+  window.addEventListener('mousemove',e=>{
+    if(drag){const w=toWorld(e.clientX,e.clientY);drag.ne.n.x=w.x;drag.ne.n.y=w.y;drag.ne.n.vx=0;drag.ne.n.vy=0;
+      if(Math.abs(e.clientX-drag.sx)+Math.abs(e.clientY-drag.sy)>4)moved=true;paint();kick(0.4);}
+    else if(pan){tx=pan.tx+(e.clientX-pan.sx);ty=pan.ty+(e.clientY-pan.sy);apply();
+      if(Math.abs(e.clientX-pan.sx)+Math.abs(e.clientY-pan.sy)>4)moved=true;}
+  });
+  window.addEventListener('mouseup',()=>{
+    if(drag){drag.ne.n.fixed=false;drag.ne.g.classList.remove('dragging');
+      // a press without movement is a click: pin/unpin this table's info card
+      if(!moved){if(pinned===drag.ne.n.name)unpin();else pinNode(drag.ne);}
+      // schematic: released node eases back to its slot. force: settles to equilibrium.
+      kick(0.6);drag=null;}
+    if(pan){svg.classList.remove('panning');if(!moved&&pinned)unpin();pan=null;}
+  });
+  nodeEls.forEach(ne=>{
+    ne.g.addEventListener('mouseenter',()=>{if(drag||pan||pinned)return;highlightNode(ne.n.name);});
+    ne.g.addEventListener('mouseleave',()=>{if(drag||pan||pinned)return;clearFGHighlight();});
+    ne.g.addEventListener('dblclick',()=>{$('#focusSel').value=ne.n.name;renderModel();});
+  });
+  function highlightNode(name){
+    const inc=new Set(incident[name]);const keep=new Set([name]);
+    incident[name].forEach(le=>{keep.add(le.l.source);keep.add(le.l.target);});
+    nodeEls.forEach(ne=>ne.g.classList.toggle('dim',!keep.has(ne.n.name)));
+    nodeEls.forEach(ne=>ne.g.classList.toggle('hot',ne.n.name===name));
+    linkEls.forEach(le=>{const on=inc.has(le);le.ln.classList.toggle('hot',on);le.ln.classList.toggle('dim',!on);if(le.crow)le.crow.classList.toggle('hot',on);le.lbl.classList.toggle('show',on);});
+  }
+  function clearFGHighlight(){
+    nodeEls.forEach(ne=>ne.g.classList.remove('dim','hot'));
+    linkEls.forEach(le=>{le.ln.classList.remove('hot','dim');if(le.crow)le.crow.classList.remove('hot');le.lbl.classList.remove('show');});
+  }
+  svg.addEventListener('wheel',e=>{e.preventDefault();const b=svg.getBoundingClientRect();
+    const mx=e.clientX-b.left,my=e.clientY-b.top;const f=e.deltaY<0?1.12:1/1.12;const ns=clamp(scale*f,0.2,4);
+    tx=mx-(mx-tx)*(ns/scale);ty=my-(my-ty)*(ns/scale);scale=ns;apply();
+  },{passive:false});
+
+  function fit(){
+    const xs=nodes.map(n=>n.x),ys=nodes.map(n=>n.y);
+    const minX=Math.min(...xs)-100,maxX=Math.max(...xs)+100,minY=Math.min(...ys)-50,maxY=Math.max(...ys)+50;
+    const gw=Math.max(1,maxX-minX),gh=Math.max(1,maxY-minY);
+    const b=svg.getBoundingClientRect();scale=clamp(Math.min(b.width/gw,b.height/gh),0.2,2);
+    tx=(b.width-gw*scale)/2-minX*scale;ty=(b.height-gh*scale)/2-minY*scale;apply();
+  }
+  function setMode(m){
+    if(m===mode)return;mode=m;state.mapMode=m;
+    // toggle edge style class on svg, recompute layout target / reheat physics
+    if(m==='schematic'){computeTargets();alpha=1;}
+    else{nodes.forEach(n=>{n.vx=0;n.vy=0;});alpha=1;}
+    if(!running){running=true;loop();}
+    setTimeout(fit,520);
+  }
+  state.fg={host,raf:0,mode,api:{
+    zoomBy:f=>{const b=svg.getBoundingClientRect();const mx=b.width/2,my=b.height/2;const ns=clamp(scale*f,0.2,4);tx=mx-(mx-tx)*(ns/scale);ty=my-(my-ty)*(ns/scale);scale=ns;apply();},
+    reset:()=>{scale=1;tx=0;ty=0;apply();},
+    fit,
+    arrange:()=>{if(mode==='schematic'){computeTargets();}else{nodes.forEach(n=>{n.vx=0;n.vy=0;});}alpha=1;if(!running){running=true;loop();}setTimeout(fit,520);},
+    setMode,
+    match:term=>{
+      term=(term||'').trim().toLowerCase();
+      nodeEls.forEach(ne=>{
+        ne.g.classList.remove('match','nomatch');
+        if(!term)return;
+        ne.g.classList.add(ne.n.name.toLowerCase().includes(term)?'match':'nomatch');
+      });
+    }
+  }};
+  kick(1);
+  // carry the sidebar search term onto the map
+  const q=($('#search')&&$('#search').value)||'';
+  if(q)state.fg.api.match(q);
+  setTimeout(()=>{if(state.fg)state.fg.api.fit();},mode==='schematic'?520:650);
+}
+
+/* role inference + structured layout (shared, pure) */
+function inferRoles(nodes,links){
+  const role={},oneC={},manyC={},deg={};
+  nodes.forEach(n=>{role[n.name]='';oneC[n.name]=0;manyC[n.name]=0;deg[n.name]=0;});
+  for(const l of links){deg[l.source]++;deg[l.target]++;const from=l.fromCardinality==='one'?oneC:manyC,to=l.toCardinality==='many'?manyC:oneC;from[l.source]=(from[l.source]||0)+1;to[l.target]=(to[l.target]||0)+1;}
+  for(const n of nodes){
+    const name=n.name;const namedDim=/(^|[^a-z])(dim|lkp|lookup|ref)\b/i.test(name)||/dim$/i.test(name);
+    const namedFact=/(^|[^a-z])(fact|fct)\b/i.test(name);
+    let r;
+    if(n.calc)r='calc';
+    else if(deg[name]===0)r='disconnected';
+    else if(namedFact)r='fact';
+    else if(namedDim)r='dim';
+    else if(oneC[name]>0&&manyC[name]===0)r='dim';
+    else if(manyC[name]>0&&oneC[name]===0)r='fact';
+    else if(manyC[name]>0&&oneC[name]>0)r='bridge';
+    else r='dim';
+    role[name]=r;
+  }
+  return {role,deg};
+}
+function schematicLayout(nodes,links,W,H){
+  const {role}=inferRoles(nodes,links);
+  const facts=nodes.filter(n=>role[n.name]==='fact'||role[n.name]==='bridge');
+  const dims=nodes.filter(n=>role[n.name]==='dim');
+  const parked=nodes.filter(n=>role[n.name]==='calc'||role[n.name]==='disconnected');
+  const pos={};const cy=(H-90)/2+34;
+
+  // which facts does each dim touch? (drives clustering)
+  const factSet=new Set(facts.map(f=>f.name));
+  const touch={};dims.forEach(d=>touch[d.name]=new Set());
+  for(const l of links){
+    if(factSet.has(l.source)&&touch[l.target])touch[l.target].add(l.source);
+    if(factSet.has(l.target)&&touch[l.source])touch[l.source].add(l.target);
+  }
+
+  if(facts.length===0){
+    // no facts detected — neutral grid
+    const cols=Math.max(1,Math.ceil(Math.sqrt(nodes.length)));
+    nodes.forEach((n,i)=>pos[n.name]={x:140+(i%cols)*240,y:100+Math.floor(i/cols)*110});
+    return {pos,role};
+  }
+
+  if(facts.length===1){
+    // classic star: fact centre, dims on one or two rings
+    pos[facts[0].name]={x:W/2,y:cy};
+    const ring1Cap=12;
+    const R1=Math.min(W,H)*0.33, R2=R1*1.62;
+    const inner=dims.slice(0,ring1Cap), outer=dims.slice(ring1Cap);
+    inner.forEach((d,i)=>{const a=-Math.PI/2+i/Math.max(1,inner.length)*2*Math.PI;
+      pos[d.name]={x:W/2+Math.cos(a)*R1,y:cy+Math.sin(a)*R1};});
+    outer.forEach((d,i)=>{const a=-Math.PI/2+Math.PI/Math.max(1,outer.length)+i/Math.max(1,outer.length)*2*Math.PI;
+      pos[d.name]={x:W/2+Math.cos(a)*R2,y:cy+Math.sin(a)*R2};});
+  } else {
+    // multi-fact "bus": facts spread along the centre line, exclusive dims clustered
+    // above/below their own fact, shared dims sitting on the bus between the facts they join.
+    const colW=Math.max(460,(W-200)/facts.length);
+    const fx={};
+    facts.forEach((f,i)=>{const x=140+colW*(i+0.5);fx[f.name]=x;pos[f.name]={x,y:cy};});
+    const shared=dims.filter(d=>touch[d.name].size>=2);
+    const excl=dims.filter(d=>touch[d.name].size<=1);
+    // shared dims: x = mean of the facts they connect, stacked near the bus line
+    const busBuckets={};
+    shared.forEach(d=>{
+      const xs=[...touch[d.name]].map(f=>fx[f]);
+      const x=Math.round(xs.reduce((a,b)=>a+b,0)/xs.length);
+      const key=Math.round(x/120);
+      busBuckets[key]=busBuckets[key]||[];
+      const k=busBuckets[key].length;busBuckets[key].push(d);
+      const off=(k===0)?0:(Math.ceil(k/2)*86*(k%2?1:-1));   // 0, +86, -86, +172, …
+      pos[d.name]={x,y:cy+off};
+    });
+    // exclusive dims: twin columns above and below their fact
+    const byFact={};facts.forEach(f=>byFact[f.name]={top:[],bot:[]});
+    let rr=0;
+    excl.forEach(d=>{
+      const f=[...touch[d.name]][0]||facts[rr++%facts.length].name;
+      const g=byFact[f]||byFact[facts[0].name];
+      (g.top.length<=g.bot.length?g.top:g.bot).push(d);
+    });
+    for(const f of facts){
+      const g=byFact[f.name],x0=fx[f.name];
+      const place=(arr,sign)=>arr.forEach((d,i)=>{
+        const col=(i%2)?1:-1, row=Math.floor(i/2);
+        pos[d.name]={x:x0+col*165,y:cy+sign*(170+row*96)};
+      });
+      place(g.top,-1);place(g.bot,1);
+    }
+  }
+  // calc / disconnected parked in rows along the bottom
+  const perRow=Math.max(1,Math.floor((W-200)/220));
+  parked.forEach((p,i)=>{pos[p.name]={x:140+(i%perRow)*220,y:H+60+Math.floor(i/perRow)*64};});
+  return {pos,role};
+}
+
+function renderDetail(){
+  const sel=state.selected;const body=$('#detailBody');if(!sel){return;}
+  const tb=$('#detailToolbar');if(tb)tb.style.display=(sel.type==='measure'||sel.type==='column')?'flex':'none';
+  const drilling=(sel.type==='measure'||sel.type==='column')&&state.trail.length;
+  let html=drilling?breadcrumbHTML():'';
+  if(sel.type==='measure'){const m=sel.ref;
+    html+=`<h3>ƒ ${esc(m.name)} ${vsPill(m)}</h3><div class="meta">measure · table ${esc(m.table)}${m.displayFolder?' · '+esc(m.displayFolder):''}${m.formatString?' · fmt '+esc(m.formatString):''}</div>`;
+    if(m.description)html+=`<div class="mini">${esc(m.description)}</div>`;
+    html+=daxBlock(m.expression);
+    html+=depPills(m.expression);
+  } else if(sel.type==='column'){const c=sel.ref;
+    html+=`<h3>${c.isCalculated?'∑':'▪'} ${esc(c.table)}[${esc(c.name)}] ${vsPill(c)}</h3><div class="meta">${c.isCalculated?'calculated column':'column'} · ${esc(c.dataType||'?')}${c.sourceColumn?' · source '+esc(c.sourceColumn):''}</div>`;
+    if(c.isCalculated)html+=daxBlock(c.expression)+depPills(c.expression);
+    else{const p=(state.model.tables[c.table]||{}).partitions||[];const a=p[0]?analyzeM(p[0].source):null;
+      html+=`<div class="mini">Stored column, loaded from the <b>${esc(c.table)}</b> partition source${a&&a.kind?` (<span style="color:var(--cyan)">${esc(a.kind)}</span>${a.details.item?' · '+esc((a.details.schema?a.details.schema+'.':'')+a.details.item):''})`:''}.</div>`;
+      html+=`<div class="mini">Switch to the <b>Lineage</b> tab to trace it through to source.</div>`;}
+  } else if(sel.type==='table'){const t=sel.ref;
+    html+=`<h3>▦ ${esc(t.name)} ${vsPill(t)}</h3><div class="meta">${t.isCalculated?'calculated table':'table'} · ${t.columns.length} columns · ${t.measures.length} measures · ${t.partitions.length} partition(s)</div>`;
+    if(t.description)html+=`<div class="mini">${esc(t.description)}</div>`;
+    for(const p of t.partitions){
+      html+=`<div class="lbl">Partition · ${esc(p.name||'')} (${esc(p.type||'?')})</div>`;
+      const a=analyzeM(p.source);
+      const srcs=(a.sources&&a.sources.length)?a.sources:(a.kind?[{kind:a.kind,details:a.details}]:[]);
+      if(srcs.length||a.refs.length){
+        html+='<div>';
+        srcs.forEach((s,i)=>{const d=s.details||{};
+          html+=`<span class="pill cyan">${esc(s.kind)}</span>`;
+          if(d.server)html+=`<span class="pill">srv: ${esc(d.server)}</span>`;
+          if(d.database)html+=`<span class="pill" style="border-color:var(--green);color:var(--green)">db: ${esc(d.database)}</span>`;
+          if(d.schema&&d.item)html+=`<span class="pill">${esc(d.schema)}.${esc(d.item)}</span>`;
+          if(d.url)html+=`<span class="pill">${esc(d.url)}</span>`;
+          if(i<srcs.length-1)html+='<span style="color:var(--ink-faint);margin:0 4px">+</span>';
+        });
+        html+=a.refs.map(r=>`<span class="pill green">→ ${esc(r)}</span>`).join('');
+        html+='</div>';
+        if(srcs.length>1)html+=`<div class="mini">${srcs.length} sources detected in this partition.</div>`;
+      }
+      // extra schema.item pairs beyond the first (multi-table pull)
+      if(a.items&&a.items.length>1){
+        html+=`<div class="mini">Tables/views referenced: `+a.items.map(it=>`<code>${esc((it.schema?it.schema+'.':'')+it.item)}</code>`).join(', ')+`</div>`;
+      }
+      html+=`<pre class="code">${esc(p.source||(p.entityName?('entity: '+(p.schemaName?p.schemaName+'.':'')+p.entityName):'(no source)'))}</pre>`;
+    }
+  } else if(sel.type==='expression'){const e=sel.ref;
+    html+=`<h3>◇ ${esc(e.name)} ${vsPill(e)}</h3><div class="meta">shared expression${e.kind?' · '+esc(e.kind):''}</div>`;
+    html+=`<pre class="code">${esc(e.expression||'')}</pre>`;
+  } else if(sel.type==='source'){const s=sel.ref;
+    html+=`<h3>⛃ ${esc(s.name||s.kind||'Data source')}</h3><div class="meta">data source${s.kind?' · '+esc(s.kind):''}</div>`;
+    const rows=[];
+    if(s.server)rows.push(['Server',s.server]);
+    if(s.dbName)rows.push(['Database',s.dbName]);
+    if(s.schema&&s.item)rows.push(['Object',(s.schema?s.schema+'.':'')+s.item]);
+    else if(s.item)rows.push(['Object',s.item]);
+    if(s.url)rows.push(['URL',s.url]);
+    if(rows.length){
+      html+=`<div class="lbl">Connection</div><div>`+rows.map(([k,v])=>`<span class="pill"><b style="color:var(--ink-dim)">${esc(k)}:</b> ${esc(v)}</span>`).join('')+`</div>`;
+    } else if(s.details&&s.details.length){
+      html+=`<div class="lbl">Connection</div><div>`+s.details.map(d=>`<span class="pill">${esc(d)}</span>`).join('')+`</div>`;
+    }
+    if(s.nativeQuery){html+=`<div class="lbl">Native query</div><pre class="code">${esc(s.nativeQuery)}</pre>`;}
+    if(!rows.length&&!(s.details&&s.details.length)&&!s.nativeQuery){
+      html+=`<div class="mini">This is a <b>${esc(s.kind||'source')}</b> endpoint. No further connection metadata was found in the partition's M expression — open the owning table to see the full source query.</div>`;
+    }
+  } else if(sel.type==='partition'){const p=sel.ref;
+    html+=`<h3>⛁ ${esc(p.name||'partition')}</h3><div class="meta">partition${p.table?' · table '+esc(p.table):''}${p.type?' · '+esc(p.type):''}${p.partitionMode?' · '+esc(p.partitionMode):''}</div>`;
+    const a=analyzeM(p.source);
+    const srcs=(a.sources&&a.sources.length)?a.sources:(a.kind?[{kind:a.kind,details:a.details}]:[]);
+    if(srcs.length){
+      html+='<div class="lbl">Sources</div><div>';
+      srcs.forEach((s,i)=>{const d=s.details||{};
+        html+=`<span class="pill cyan">${esc(s.kind)}</span>`;
+        if(d.server)html+=`<span class="pill">srv: ${esc(d.server)}</span>`;
+        if(d.database)html+=`<span class="pill" style="border-color:var(--green);color:var(--green)">db: ${esc(d.database)}</span>`;
+        if(d.schema&&d.item)html+=`<span class="pill">${esc(d.schema)}.${esc(d.item)}</span>`;
+        if(d.url)html+=`<span class="pill">${esc(d.url)}</span>`;
+        if(i<srcs.length-1)html+='<span style="color:var(--ink-faint);margin:0 4px">+</span>';
+      });
+      html+='</div>';
+    }
+    if(p.entityName)html+=`<div class="lbl">Entity</div><div><span class="pill">${esc((p.schemaName?p.schemaName+'.':'')+p.entityName)}</span></div>`;
+    html+=`<div class="lbl">Source expression</div><pre class="code">${esc(p.source||(p.entityName?('entity: '+(p.schemaName?p.schemaName+'.':'')+p.entityName):'(no source expression)'))}</pre>`;
+    if(!srcs.length&&!p.source&&!p.entityName)html+=`<div class="mini">No source expression is recorded for this partition.</div>`;
+  }
+  body.innerHTML=html;
+  wireDetail();if(sel.type==='measure'||sel.type==='column')renderImpact(sel,body);
+}
+function breadcrumbHTML(){
+  const t=state.trail,p=state.trailPos;
+  const crumbs=t.slice(0,p+1).map((it,i)=>{
+    const lbl=it.type==='measure'?('ƒ '+it.ref.name):(it.ref.table+'['+it.ref.name+']');
+    return (i?'<span class="crumbsep">›</span>':'')+`<span class="crumb${i===p?' here':''}" data-crumb="${i}"><span class="ck">${i===p?'':''}</span>${esc(lbl)}</span>`;
+  }).join('');
+  const back=`<span class="navbtn${p<=0?' disabled':''}" data-nav="back" title="Back">←</span>`;
+  const fwd=`<span class="navbtn${p>=t.length-1?' disabled':''}" data-nav="fwd" title="Forward">→</span>`;
+  return `<div class="crumbbar">${back}${fwd}<div class="crumbs">${crumbs}</div></div>`;
+}
+function daxBlock(expr){
+  const shown=state.daxFmt?formatDax(expr):expr;
+  const btn=`<span class="toggle${state.daxFmt?' on':''}" data-fmt="1">${state.daxFmt?'↩ original':'⤢ format'}</span>`;
+  return `<div class="lbl daxhead">DAX ${btn}</div><pre class="code">${dax(shown)}</pre>`;
+}
+function depPills(expr){
+  const d=analyzeDax(expr,state.knownTables);
+  const localSet=new Set(d.locals||[]);
+  const items=[];const seen=new Set();const localItems=[];
+  new Set(d.names).forEach(n=>{
+    if(localSet.has(n)){localItems.push(`<span class="pill" title="extension column defined inside this expression (SUMMARIZE/ADDCOLUMNS) — not a model column">⟨ ${esc(n)} ⟩</span>`);return;}
+    const r=resolveName(n);
+    if(r&&r.type==='measure'){const k='m|'+n;if(seen.has(k))return;seen.add(k);items.push(`<span class="pill green drill" data-k="m" data-name="${esc(n)}">ƒ ${esc(n)}</span>`);}
+    else if(r){const c=r.node;const k='c|'+c.table+'|'+c.name;if(seen.has(k))return;seen.add(k);items.push(`<span class="pill drill" data-k="c" data-table="${esc(c.table)}" data-col="${esc(c.name)}">${esc(c.table)}[${esc(c.name)}]</span>`);}
+    else items.push(`<span class="pill">[${esc(n)}]</span>`);
+  });
+  dedup(d.columns).forEach(c=>{
+    const qm=findMeasure(c.table,c.column);if(qm){const mk='m|'+qm.name;if(!seen.has(mk)){seen.add(mk);items.push(`<span class="pill green drill" data-k="m" data-name="${esc(qm.name)}">ƒ ${esc(qm.name)}</span>`);}return;}
+    const found=findColumn(c.table,c.column);const k='c|'+c.table+'|'+c.column;if(seen.has(k))return;seen.add(k);
+    if(found)items.push(`<span class="pill drill" data-k="c" data-table="${esc(c.table)}" data-col="${esc(c.column)}">${esc(c.table)}[${esc(c.column)}]</span>`);
+    else items.push(`<span class="pill">${esc(c.table)}[${esc(c.column)}]</span>`);
+  });
+  for(const tn of d.tables)if(!d.columns.some(c=>normName(c.table)===normName(tn)))items.push(`<span class="pill">▦ ${esc(tn)} · table reference</span>`);
+  let out='';
+  if(!items.length)out='<div class="lbl">Direct dependencies</div><div class="mini">No model measure or column references — leaf measure.</div>';
+  else out=`<div class="lbl">Direct dependencies <span style="color:var(--ink-faint);text-transform:none;letter-spacing:0">· click to drill in</span></div><div>${items.join('')}</div>`;
+  if(localItems.length)out+=`<div class="lbl">Extension columns <span style="color:var(--ink-faint);text-transform:none;letter-spacing:0">· local to this DAX, not model objects</span></div><div>${localItems.join('')}</div>`;
+  return out;
+}
+function wireDetail(){
+  document.querySelectorAll('[data-nav]').forEach(b=>b.onclick=()=>{
+    if(b.classList.contains('disabled'))return;
+    setTrailPos(state.trailPos+(b.dataset.nav==='back'?-1:1));
+  });
+  document.querySelectorAll('[data-crumb]').forEach(c=>c.onclick=()=>setTrailPos(+c.dataset.crumb));
+  document.querySelectorAll('[data-fmt]').forEach(b=>b.onclick=()=>{state.daxFmt=!state.daxFmt;renderDetail();});
+  document.querySelectorAll('[data-vsfile]').forEach(b=>b.onclick=ev=>{ev.stopPropagation();openInVSCode(b.dataset.vsfile,+b.dataset.vsline||null);});
+  document.querySelectorAll('.pill.drill').forEach(p=>p.onclick=()=>{
+    if(p.dataset.k==='m'){const r=resolveName(p.dataset.name);if(r&&r.type==='measure')focusItem({type:'measure',ref:r.node});}
+    else{const c=findColumn(p.dataset.table,p.dataset.col);if(c)focusItem({type:'column',ref:c});}
+  });
+}
+// small "open in VS Code" pill for detail headers — shown whenever we know the source file
+function vsPill(ref){
+  if(!ref||!ref.file)return '';
+  return `<span class="vs-link" data-vsfile="${esc(ref.file)}" data-vsline="${ref.line||''}" title="Open ${esc(ref.file)}${ref.line?' at line '+ref.line:''} in VS Code">⌁ VS Code${ref.line?' :'+ref.line:''}</span>`;
+}
+
+/* ---- tabs / focus ---- */
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>showView(t.dataset.view));
+/* ---- light / dark theme toggle ---- */
+function currentTheme(){return document.documentElement.getAttribute('data-theme')==='light'?'light':'dark';}
+function updateThemeBtn(){const b=$('#themeBtn');if(!b)return;const light=currentTheme()==='light';
+  b.textContent=light?'🌙 Dark':'☀️ Light';
+  b.title=light?'Switch to dark theme':'Switch to light theme';}
+function setTheme(mode){
+  if(mode==='light')document.documentElement.setAttribute('data-theme','light');
+  else document.documentElement.removeAttribute('data-theme');
+  try{localStorage.setItem('pbiviz.theme',mode);}catch(e){}
+  updateThemeBtn();
+  // re-theme mermaid diagrams (initMermaid re-renders model + lineage when a model is loaded)
+  if(window.mermaid&&state.mermaidOK){try{initMermaid();}catch(e){}}
+}
+$('#themeBtn').onclick=()=>setTheme(currentTheme()==='light'?'dark':'light');
+updateThemeBtn();
+function showView(v){
+  document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x.dataset.view===v));
+  document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));
+  $('#view-'+v).classList.add('active');
+  if(v==='model'&&state.model)renderModel();
+  if(v==='lineage')renderLineage();
+  if(v==='report'){const sel=$('#reportPageSel');renderReport(sel&&sel.value?+sel.value:0);}
+  if(v==='audit')renderAudit();
+}
+function populateFocus(){
+  const sel=$('#focusSel');sel.innerHTML='<option value="">Overview · choose a table</option>';
+  Object.keys(state.model.tables).sort().forEach(t=>{const o=el('option');o.value=t;o.textContent=t;sel.appendChild(o);});
+}
+$('#overviewBtn').onclick=()=>{$('#focusSel').value='';renderModel();};$('#inactiveRel').onchange=renderModel;
+$('#focusSel').onchange=()=>{state.fgPos=null;renderModel();};$('#hopSel').onchange=renderModel;
+$('#copyModelMmd').onclick=()=>copy(state.lastModelMmd,'Mermaid copied');
+$('#arrangeBtn').onclick=()=>{if(state.fg&&state.fg.api&&state.fg.api.arrange)state.fg.api.arrange();};
+document.querySelectorAll('#mapMode .seg-btn').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('#mapMode .seg-btn').forEach(x=>x.classList.toggle('active',x===b));
+  const m=b.dataset.mode;state.mapMode=m;
+  if(state.fg&&state.fg.api&&state.fg.api.setMode)state.fg.api.setMode(m);
+});
+$('#copyLinMmd').onclick=()=>copy(state.lastLinMmd,'Mermaid copied');
+/* ---- markdown export ---- */
+function openMd(text,title){$('#mdText').value=text;$('#mdTitle').textContent=title;$('#mdModal').style.display='flex';state._mdName=title;}
+$('#mdBtn').onclick=()=>{const s=state.selected;if(!s||(s.type!=='measure'&&s.type!=='column'))return;
+  const md=lineageMarkdown({type:s.type,ref:s.ref});
+  openMd(md,(s.type==='measure'?s.ref.name:s.ref.table+'['+s.ref.name+']'));};
+$('#mdModelBtn').onclick=()=>{if(!state.model)return;
+  const s=$('#status');s.textContent='Generating model documentation…';
+  setTimeout(()=>{openMd(modelMarkdown(),'Whole model');s.textContent='';},20);};
+$('#mdCopy').onclick=()=>copy($('#mdText').value,'Markdown copied');
+$('#mdDownload').onclick=()=>{const name=(state._mdName||'lineage').replace(/[^\w.-]+/g,'_');downloadText(name+'.md',$('#mdText').value);};
+$('#mdClose').onclick=()=>{$('#mdModal').style.display='none';};
+$('#mdModal').addEventListener('click',e=>{if(e.target===$('#mdModal'))$('#mdModal').style.display='none';});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('#mdModal').style.display==='flex')$('#mdModal').style.display='none';});
+document.querySelectorAll('.zoom').forEach(z=>{
+  const host=z.dataset.host;
+  z.querySelectorAll('button').forEach(b=>b.onclick=()=>{
+    const a=b.dataset.z;
+    if(host==='modelDiagram'&&state.fg&&state.fg.api){
+      const api=state.fg.api;
+      if(a==='in')api.zoomBy(1.2);else if(a==='out')api.zoomBy(1/1.2);
+      else if(a==='reset')api.reset();else if(a==='fit')api.fit();
+      return;
+    }
+    if(a==='in')zoomBy(host,1.2);else if(a==='out')zoomBy(host,1/1.2);
+    else if(a==='reset')zoomReset(host);else if(a==='fit')zoomFit(host);
+  });
+});
+$('#isolateToggle').onclick=()=>{
+  state.isolate=!state.isolate;
+  $('#isolateToggle').classList.toggle('on',state.isolate);
+  // re-apply current highlight if one exists
+  const svg=$('#lineageDiagram').querySelector('svg');
+  if(svg&&svg.querySelector('.lin-hl')){
+    const rootEl=svg.querySelector('.lin-hl-root');
+    if(rootEl)highlightUpstream(rootEl.getAttribute('data-id'));
+  }
+};
+$('#clearHl').onclick=()=>clearHighlight('lineageDiagram');
+$('#rerootBtn').onclick=()=>{const s=state.selected;if(s&&(s.type==='measure'||s.type==='column')){state.linRoot={type:s.type,ref:s.ref};renderLineage();}};
+
+/* ---- sidebar resizer ---- */
+(function(){
+  const rz=$('#resizer');if(!rz)return;
+  const DEF=320,MIN=200,MAX=720;
+  const setW=w=>document.documentElement.style.setProperty('--aside-w',clamp(w,MIN,MAX)+'px');
+  let dragging=false;
+  rz.addEventListener('mousedown',e=>{dragging=true;rz.classList.add('dragging');document.body.classList.add('resizing');e.preventDefault();});
+  window.addEventListener('mousemove',e=>{if(!dragging)return;const main=document.querySelector('main');const left=main.getBoundingClientRect().left;setW(e.clientX-left);});
+  window.addEventListener('mouseup',()=>{if(dragging){dragging=false;rz.classList.remove('dragging');document.body.classList.remove('resizing');}});
+  rz.addEventListener('dblclick',()=>setW(DEF));
+})();
+async function copy(txt,msg){if(!txt)return;try{if(navigator.clipboard)await navigator.clipboard.writeText(txt);else{const t=document.createElement('textarea');t.value=txt;document.body.appendChild(t);t.select();const ok=document.execCommand('copy');t.remove();if(!ok)throw Error('Clipboard unavailable');}$('#status').textContent=(msg||'Copied')+' ✓';}catch(e){openMd(txt,'Copy text manually');$('#status').textContent='Clipboard blocked — select and copy the text.';}}
+
+function downloadText(filename,text){
+  const blob=new Blob([text],{type:'text/markdown'});const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();
+  setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},100);
+}
+
+/* ---- helpers ---- */
+function tokenizeDax(src){
+  const toks=[];let i=0;const n=src.length;
+  const isIdStart=c=>/[A-Za-z_]/.test(c), isId=c=>/[A-Za-z0-9_]/.test(c);
+  while(i<n){const c=src[i];
+    if(c===' '||c==='\t'||c==='\r'||c==='\n'){i++;continue;}
+    if(c==='/'&&src[i+1]==='/'){let j=i;while(j<n&&src[j]!=='\n')j++;toks.push({k:'com',v:src.slice(i,j)});i=j;continue;}
+    if(c==='-'&&src[i+1]==='-'){let j=i;while(j<n&&src[j]!=='\n')j++;toks.push({k:'com',v:src.slice(i,j)});i=j;continue;}
+    if(c==='/'&&src[i+1]==='*'){let j=i+2;while(j<n&&!(src[j]==='*'&&src[j+1]==='/'))j++;j=Math.min(n,j+2);toks.push({k:'com',v:src.slice(i,j)});i=j;continue;}
+    if(c==='"'){let j=i+1;while(j<n){if(src[j]==='"'){if(src[j+1]==='"'){j+=2;continue;}break;}j++;}j++;toks.push({k:'str',v:src.slice(i,j)});i=j;continue;}
+    if(c==="'"){let j=i+1;while(j<n){if(src[j]==="'"){if(src[j+1]==="'"){j+=2;continue;}break;}j++;}j++;toks.push({k:'qid',v:src.slice(i,j)});i=j;continue;}
+    if(c==='['){let j=i+1;while(j<n&&src[j]!==']')j++;j++;toks.push({k:'ref',v:src.slice(i,j)});i=j;continue;}
+    if(/[0-9]/.test(c)||(c==='.'&&/[0-9]/.test(src[i+1]||''))){let j=i;while(j<n&&/[0-9.]/.test(src[j]))j++;toks.push({k:'num',v:src.slice(i,j)});i=j;continue;}
+    if(isIdStart(c)){let j=i;while(j<n&&isId(src[j]))j++;const v=src.slice(i,j);toks.push({k:/^(VAR|RETURN)$/i.test(v)?'kw':'id',v});i=j;continue;}
+    const two=src.substr(i,2);
+    if(['<=','>=','<>','&&','||',':='].includes(two)){toks.push({k:'op',v:two});i+=2;continue;}
+    toks.push({k:'punct',v:c});i++;
+  }
+  return toks;
+}
+function formatDax(src){
+  if(!src||!src.trim())return src||'';
+  const toks=tokenizeDax(src);let out='';let indent=0;
+  const pad=()=>'    '.repeat(Math.max(0,indent));
+  const newline=()=>{out=out.replace(/[ \t]+$/,'');out+='\n'+pad();};
+  const opSet=new Set(['+','-','*','/','&','=','<','>']);
+  function decide(o){let depth=0,comma=false,len=0,nested=0;
+    for(let j=o;j<toks.length;j++){const v=toks[j].v;
+      if(v==='('){depth++;if(depth>1)nested++;}
+      else if(v===')'){depth--;if(depth===0)return (comma&&(len>48||nested>0))||len>72;}
+      else if(v===','&&depth===1)comma=true;len+=v.length+1;}
+    return comma;}
+  const frames=[];
+  for(let i=0;i<toks.length;i++){const t=toks[i],v=t.v,k=t.k,pv=toks[i-1];
+    if(k==='kw'&&/^VAR$/i.test(v)){if(out.trim())newline();out+='VAR ';continue;}
+    if(k==='kw'&&/^RETURN$/i.test(v)){if(out.trim())newline();out+='RETURN';indent++;newline();continue;}
+    if(v==='('){const ml=decide(i);frames.push(ml);if(pv&&(pv.k==='id'||pv.k==='kw'))out+=' ';out+='(';if(ml){indent++;newline();}continue;}
+    if(v===')'){const ml=frames.pop();if(ml){indent--;newline();}else{out=out.replace(/[ \t]+$/,'');}out+=')';continue;}
+    if(v===','){out=out.replace(/[ \t]+$/,'');out+=',';if(frames[frames.length-1])newline();else out+=' ';continue;}
+    if((v==='-'||v==='+')&&(!pv||pv.v==='('||pv.v===','||pv.k==='op'||pv.k==='kw')){if(out&&!/[\s(]$/.test(out))out+=' ';out+=v;continue;}
+    if(k==='op'||(k==='punct'&&opSet.has(v))){if(out&&!/[\s(]$/.test(out))out+=' ';out+=v+' ';continue;}
+    if(v==='{'||v==='}'){out+=v;continue;}
+    if(k==='com'){if(out.trim())newline();out+=v;newline();continue;}
+    if(k==='ref'){out+=v;continue;}
+    if(out&&/[\w\])'"]$/.test(out)&&/^[\w'"]/.test(v))out+=' ';
+    out+=v;
+  }
+  return out.replace(/[ \t]+$/gm,'').replace(/\n{3,}/g,'\n\n').trim();
+}
+function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+function dax(expr){ // light syntax highlight
+  if(!expr)return'';
+  let s=esc(expr);
+  s=s.replace(/(&quot;[^&]*?&quot;|"[^"]*")/g,'<span class="str">$1</span>');
+  s=s.replace(/(\/\/[^\n]*|--[^\n]*)/g,'<span class="com">$1</span>');
+  s=s.replace(/\b(VAR|RETURN|IF|SWITCH|TRUE|FALSE|NOT|AND|OR|IN|BLANK)\b/g,'<span class="kw">$1</span>');
+  s=s.replace(/\b([A-Z][A-Z0-9]+)(\s*\()/g,'<span class="fn">$1</span>$2');
+  s=s.replace(/(&#39;[^&]*?&#39;|'[^']*')(\s*\[)/g,'<span class="obj">$1</span>$2');
+  return s;
+}
+
+/* ============================================================ MERMAID LOADER (local first, then CDN) ============================================================ */
+function initMermaid(){
+  try{window.mermaid.initialize({startOnLoad:false,theme:(mmdIsLight()?'default':'dark'),securityLevel:'strict',flowchart:{curve:'basis',htmlLabels:true,nodeSpacing:45,rankSpacing:70},themeVariables:{fontFamily:'JetBrains Mono, monospace',fontSize:'13px'}});state.mermaidOK=true;
+    if(state.model){renderModel();if(state.selected)renderLineage();}}catch(e){}
+}
+function loadMermaid(){
+  const sources=['./mermaid.min.js','https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.9.3/mermaid.min.js'];
+  let i=0;
+  (function next(){
+    if(i>=sources.length){$('#mermaidBanner').classList.add('show');return;}
+    const s=document.createElement('script');s.src=sources[i++];
+    s.onload=()=>{if(window.mermaid)initMermaid();else next();};
+    s.onerror=next;document.head.appendChild(s);
+  })();
+}
+loadMermaid();
+</script>
+</body>
+</html>
